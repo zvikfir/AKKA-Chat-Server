@@ -10,7 +10,9 @@ import akka.actor.ActorSystem;
 
 public class AkkaQuickstart {
   public static void main(String[] args) {
-    final ActorSystem system = ActorSystem.create("helloakka");
+    final ActorSystem system = ActorSystem.create("Whatsapp");
+
+
     try {
       //#create-actors
       final ActorRef printerActor = 
