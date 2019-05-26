@@ -69,4 +69,18 @@ public class ManagingServer extends AbstractActor {
             this.userName = userName;
         }
     }
+
+    public static class FetchTargetUserRef {
+        String target;
+        public FetchTargetUserRef(String target) {
+            this.target = target;
+        }
+    }
+
+    public static class Disconnect {
+        String username;
+        public Disconnect(String username) {
+            this.username = username;
+        }
+    }
 }
