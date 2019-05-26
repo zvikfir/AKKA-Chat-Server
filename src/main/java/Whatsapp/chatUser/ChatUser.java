@@ -60,6 +60,7 @@ public class ChatUser extends AbstractActor {
 
     String username;
     final ActorSelection managingServer = getContext().actorSelection("akka://Whatsapp@127.0.0.1:2552/user/managingServer");
+//    final ActorSelection managingServer = getContext().actorSelection("akka://Whatsapp@192.168.0.96:2552/user/managingServer");
     final Timeout timeout = new Timeout(Duration.create(1, TimeUnit.SECONDS));
 
     public ChatUser(String username) {
