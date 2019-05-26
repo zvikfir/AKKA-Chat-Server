@@ -27,29 +27,6 @@ public class ManagingServer extends AbstractActor {
         return Props.create(ManagingServer.class, () -> new ManagingServer());
     }
 
-    @Override
-    public Receive createReceive() {
-        return receiveBuilder()
-                .match(Connect.class, connect -> {
-                    if (userNames.contains(connect.userName)) {
-                        getSender().tell("no", getSelf());
-                    } else {
-                        log.info("received connect");
-                        getSender().tell("ok", getSelf());
-                        this.userNames.add(connect.userName);
-                    }
-                })
-                .build();
-    }
-
-    public static class Connect implements Serializable {
-        String userName;
-
-        public Connect(String userName) {
-            this.userName = userName;
-        }
-    }
-
     public static void main(String[] args) {
         final ActorSystem system = ActorSystem.create("Whatsapp", ConfigFactory.load("managingServer"));
 
@@ -68,5 +45,28 @@ public class ManagingServer extends AbstractActor {
         }
     }
 
-}
+    @Override
+    public Receive createReceive() {
+        return receiveBuilder()
+                .match(Connect.class, connect -> {
+                    if (userNames.contains(connect.userName)) {
+                        getSender().tell(new ChatUser.UserConnectFailure(
+                                String.format("%s is in use!", connect.userName)), getSelf());
+                    } else {
+                        log.info("received connect");
+                        getSender().tell(new ChatUser.UserConnectSuccess(
+                                String.format("%s has connected successfully!", connect.userName)), getSelf());
+                        this.userNames.add(connect.userName);
+                    }
+                })
+                .build();
+    }
 
+    public static class Connect implements Serializable {
+        String userName;
+
+        public Connect(String userName) {
+            this.userName = userName;
+        }
+    }
+}
