@@ -13,12 +13,15 @@ import scala.concurrent.duration.Duration;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
-import java.util.HashMap;
 import java.util.Scanner;
 import java.util.concurrent.TimeUnit;
 
 public class ChatUser extends AbstractActor {
     LoggingAdapter log = Logging.getLogger(getContext().getSystem(), this);
+    final ActorSelection managingServer = getContext().actorSelection("akka://Whatsapp@127.0.0.1:2552/user/managingServer");
+    final static Timeout timeout = new Timeout(Duration.create(1, TimeUnit.SECONDS));
+
+    String username;
 
     static public Props props() {
         return Props.create(ChatUser.class, () -> new ChatUser());
@@ -29,6 +32,19 @@ public class ChatUser extends AbstractActor {
 
         public ConnectControlMessage(String username) {
             this.username = username;
+        }
+    }
+
+    public static class DisconnectControlMessage {
+    }
+
+    public static class TextControlMessage {
+        String target;
+        String msg;
+
+        public TextControlMessage(String target, String msg) {
+            this.target = target;
+            this.msg = msg;
         }
     }
 
@@ -83,19 +99,14 @@ public class ChatUser extends AbstractActor {
         }
     }
 
-    final ActorSelection managingServer = getContext().actorSelection("akka://Whatsapp@127.0.0.1:2552/user/managingServer");
-    final static Timeout timeout = new Timeout(Duration.create(1, TimeUnit.SECONDS));
-
-    public ChatUser() {
-    }
 
     @Override
     public Receive createReceive() {
         return receiveBuilder()
                 .match(ConnectControlMessage.class, msg -> connect(msg.username))
-                .match(UserChatTextMessage.class, msg -> {
-                    System.out.println(msg.getMessage());
-                })
+                .match(DisconnectControlMessage.class, msg -> disconnect())
+                .match(TextControlMessage.class, msg -> text(msg.target, msg.msg))
+                .match(UserChatTextMessage.class, msg -> System.out.println(msg.getMessage()))
                 .build();
     }
 
@@ -104,6 +115,7 @@ public class ChatUser extends AbstractActor {
         try {
             Object result = Await.result(rt, timeout.duration());
             if (result instanceof UserConnectSuccess) {
+                this.username = username;
                 System.out.println(((UserConnectSuccess) result).msg);
             } else {
                 System.out.println(((UserConnectFailure) result).msg);
@@ -113,56 +125,52 @@ public class ChatUser extends AbstractActor {
         }
     }
 
-//    private void disconnect() {
-//        Future<Object> rt = Patterns.ask(managingServer, new ManagingServer.Disconnect(username), timeout);
-//        try {
-//            Object result = Await.result(rt, timeout.duration());
-//            if (result instanceof UserDisconnectSuccess) {
-//                System.out.println(((UserDisconnectSuccess) result).msg);
-//            }
-//        } catch (Exception e) {
-//            System.out.println("server is offline!");
-//        }
-//    }
-//
-//    private void text(String target, String msg) {
-//        ActorRef targetRef = fetchTargetRef(target);
-//
-//        if(targetRef == ActorRef.noSender())
-//            return;
-//
-//        targetRef.tell(new UserChatTextMessage(username, msg), getSelf());
-//    }
-//
-//
-//    private void file(String target, byte[] file) {
-//        ActorRef targetRef = fetchTargetRef(target);
-//
-//        if(targetRef == ActorRef.noSender())
-//            return;
-//
-//        targetRef.tell(new UserChatFileMessage(username, file), getSelf());
-//    }
-//
-//    private ActorRef fetchTargetRef(String target) {
-//        ActorRef targetRef = null;
-//        if(contacts.containsKey(target)) {
-//            targetRef = contacts.get(target);
-//        }
-//        else {
-//            Future<Object> rt = Patterns.ask(managingServer, new ManagingServer.FetchTargetUserRef(target), timeout);
-//            try {
-//                targetRef = (ActorRef) Await.result(rt, timeout.duration());
-//            } catch (Exception e) {
-//                System.out.println("server is offline!");
-//            }
-//        }
-//
-//        if(targetRef == ActorRef.noSender())
-//            System.out.println(String.format("%s does not exist!", target));
-//
-//        return targetRef;
-//    }
+    private void disconnect() {
+        Future<Object> rt = Patterns.ask(managingServer, new ManagingServer.Disconnect(username), timeout);
+        try {
+            Object result = Await.result(rt, timeout.duration());
+            if (result instanceof UserDisconnectSuccess) {
+                System.out.println(((UserDisconnectSuccess) result).msg);
+            }
+        } catch (Exception e) {
+            System.out.println("server is offline!");
+        }
+    }
+
+    private void text(String target, String msg) {
+        ActorRef targetRef = fetchTargetRef(target);
+
+        if (targetRef == ActorRef.noSender())
+            return;
+
+        targetRef.tell(new UserChatTextMessage(username, msg), getSelf());
+    }
+
+
+    private void file(String target, byte[] file) {
+        ActorRef targetRef = fetchTargetRef(target);
+
+        if (targetRef == ActorRef.noSender())
+            return;
+
+        targetRef.tell(new UserChatFileMessage(username, file), getSelf());
+    }
+
+    private ActorRef fetchTargetRef(String target) {
+        ActorRef targetRef = null;
+
+        Future<Object> rt = Patterns.ask(managingServer, new ManagingServer.FetchTargetUserRef(target), timeout);
+        try {
+            targetRef = (ActorRef) Await.result(rt, timeout.duration());
+        } catch (Exception e) {
+            System.out.println("server is offline!");
+        }
+
+        if (targetRef == ActorRef.noSender())
+            System.out.println(String.format("%s does not exist!", target));
+
+        return targetRef;
+    }
 
     private static void cli(ActorRef user) {
         Scanner in = new Scanner(System.in);
@@ -170,28 +178,39 @@ public class ChatUser extends AbstractActor {
             System.out.print(">>");
             String input = in.nextLine();
 
-            if(input.startsWith("/user")) {
+            if (input.startsWith("/user")) {
                 String[] cmd_parts = input.split("\\s+");
                 cli_user(user, cmd_parts);
             }
 
 
-        } while(true);
+        } while (true);
     }
 
     private static void cli_user(ActorRef user, String[] cmd_parts) {
         String cmd = cmd_parts[1];
-        switch(cmd) {
+        switch (cmd) {
+            // /user connect <username>
             case "connect":
                 user.tell(new ConnectControlMessage(cmd_parts[2]), ActorRef.noSender());
                 break;
+            // /user disconnect
             case "disconnect":
+                user.tell(new DisconnectControlMessage(), ActorRef.noSender());
                 break;
+            // /user text <target> <message>
             case "text":
+                user.tell(new TextControlMessage(cmd_parts[2], cmd_parts[3]), ActorRef.noSender());
                 break;
+            // /user file <target> <sourceFilePath>
             case "file":
+
                 break;
         }
+    }
+
+    public static void cli_user_file(ActorRef user, String[] cmd_parts) {
+
     }
 
     public static void main(String[] args) {
