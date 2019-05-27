@@ -11,7 +11,12 @@ import scala.concurrent.Await;
 import scala.concurrent.Future;
 import scala.concurrent.duration.Duration;
 
+import java.io.File;
+import java.io.IOException;
 import java.io.Serializable;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.Scanner;
 import java.util.concurrent.TimeUnit;
@@ -48,6 +53,16 @@ public class ChatUser extends AbstractActor {
         }
     }
 
+    public static class FileControlMessage {
+        String target;
+        byte[] file;
+
+        public FileControlMessage(String target, byte[] file) {
+            this.target = target;
+            this.file = file;
+        }
+    }
+
     public static class UserConnectSuccess implements Serializable {
         String msg;
 
@@ -64,7 +79,7 @@ public class ChatUser extends AbstractActor {
         }
     }
 
-    public static class UserDisconnectSuccess {
+    public static class UserDisconnectSuccess implements Serializable {
         String msg;
 
         public UserDisconnectSuccess(String msg) {
@@ -72,7 +87,7 @@ public class ChatUser extends AbstractActor {
         }
     }
 
-    public static class UserChatTextMessage {
+    public static class UserChatTextMessage implements Serializable {
         String source;
         String message;
 
@@ -88,7 +103,7 @@ public class ChatUser extends AbstractActor {
         }
     }
 
-    public static class UserChatFileMessage {
+    public static class UserChatFileMessage implements Serializable {
         String source;
         byte[] file;
         String targetFilePath;
@@ -106,7 +121,9 @@ public class ChatUser extends AbstractActor {
                 .match(ConnectControlMessage.class, msg -> connect(msg.username))
                 .match(DisconnectControlMessage.class, msg -> disconnect())
                 .match(TextControlMessage.class, msg -> text(msg.target, msg.msg))
+                .match(FileControlMessage.class, msg -> file(msg.target, msg.file))
                 .match(UserChatTextMessage.class, msg -> System.out.println(msg.getMessage()))
+                .match(UserChatFileMessage.class, msg -> {})
                 .build();
     }
 
@@ -204,13 +221,21 @@ public class ChatUser extends AbstractActor {
                 break;
             // /user file <target> <sourceFilePath>
             case "file":
-
+                cli_user_file(user, cmd_parts[2], cmd_parts[3]);
                 break;
         }
     }
 
-    public static void cli_user_file(ActorRef user, String[] cmd_parts) {
+    public static void cli_user_file(ActorRef user, String target, String filePath) {
+        byte[] fileContent;
+        try {
+            fileContent = Files.readAllBytes(Paths.get(filePath));
+        } catch (IOException e) {
+            System.out.println(String.format("%s does not exist!", filePath));
+            return;
+        }
 
+        user.tell(new FileControlMessage(target, fileContent), ActorRef.noSender());
     }
 
     public static void main(String[] args) {
