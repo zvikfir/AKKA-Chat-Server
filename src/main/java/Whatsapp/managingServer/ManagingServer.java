@@ -14,10 +14,10 @@ import java.util.HashMap;
 public class ManagingServer extends AbstractActor {
     LoggingAdapter log = Logging.getLogger(getContext().getSystem(), this);
 
-    private HashMap<String, ActorPath> users;
+    private HashMap<String, String> users;
 
     public ManagingServer() {
-        this.users = new HashMap<String, ActorPath>();
+        this.users = new HashMap<String, String>();
     }
 
     static public Props props() {
@@ -51,7 +51,7 @@ public class ManagingServer extends AbstractActor {
                                 String.format("%s is in use!", connect.userName)), getSelf());
                     } else {
                         log.info("received connect");
-                        this.users.put(connect.userName, getSender().path());
+                        this.users.put(connect.userName, connect.sourcePath);
                         getSender().tell(new ChatUser.UserConnectSuccess(
                                 String.format("%s has connected successfully!", connect.userName)), getSelf());
                     }
@@ -62,7 +62,7 @@ public class ManagingServer extends AbstractActor {
                             String.format("%s has been disconnected successfully!", disconnect.username)), getSelf());
                 })
                 .match(FetchTargetUserRef.class, fetchTarget -> {
-                    ActorPath target = null;
+                    String target = null;
                     if (users.containsKey(fetchTarget.target)) {
                         target = users.get(fetchTarget.target);
                     }
@@ -77,6 +77,7 @@ public class ManagingServer extends AbstractActor {
 
         public Connect(String userName, String sourcePath) {
             this.userName = userName;
+            this.sourcePath = sourcePath;
         }
     }
 
