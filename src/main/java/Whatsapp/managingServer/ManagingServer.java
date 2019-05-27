@@ -62,7 +62,7 @@ public class ManagingServer extends AbstractActor {
                             String.format("%s has been disconnected successfully!", disconnect.username)), getSelf());
                 })
                 .match(FetchTargetUserRef.class, fetchTarget -> {
-                    ActorPath target = ActorRef.noSender().path();
+                    ActorPath target = null;
                     if (users.containsKey(fetchTarget.target)) {
                         target = users.get(fetchTarget.target);
                     }
@@ -73,8 +73,9 @@ public class ManagingServer extends AbstractActor {
 
     public static class Connect implements Serializable {
         String userName;
+        String sourcePath;
 
-        public Connect(String userName) {
+        public Connect(String userName, String sourcePath) {
             this.userName = userName;
         }
     }

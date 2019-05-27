@@ -128,7 +128,7 @@ public class ChatUser extends AbstractActor {
     }
 
     private void connect(String username) {
-        Future<Object> rt = Patterns.ask(managingServer, new ManagingServer.Connect(username), timeout);
+        Future<Object> rt = Patterns.ask(managingServer, new ManagingServer.Connect(username, getSelf().toString()), timeout);
         try {
             Object result = Await.result(rt, timeout.duration());
             if (result instanceof UserConnectSuccess) {
@@ -188,6 +188,8 @@ public class ChatUser extends AbstractActor {
 
         if (targetRef == ActorRef.noSender())
             System.out.println(String.format("%s does not exist!", target));
+
+        log.info(String.format("fetched path: %s", targetPath.toString()));
 
         return targetRef;
     }
