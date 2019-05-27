@@ -24,6 +24,14 @@ public class ChatUser extends AbstractActor {
         return Props.create(ChatUser.class, () -> new ChatUser());
     }
 
+    public static class ConnectControlMessage {
+        String username;
+
+        public ConnectControlMessage(String username) {
+            this.username = username;
+        }
+    }
+
     public static class UserConnectSuccess implements Serializable {
         String msg;
 
@@ -75,7 +83,7 @@ public class ChatUser extends AbstractActor {
         }
     }
 
-    //    final ActorSelection managingServer = getContext().actorSelection("akka://Whatsapp@192.168.0.96:2552/user/managingServer");
+    final ActorSelection managingServer = getContext().actorSelection("akka://Whatsapp@127.0.0.1:2552/user/managingServer");
     final static Timeout timeout = new Timeout(Duration.create(1, TimeUnit.SECONDS));
 
     public ChatUser() {
@@ -84,13 +92,14 @@ public class ChatUser extends AbstractActor {
     @Override
     public Receive createReceive() {
         return receiveBuilder()
+                .match(ConnectControlMessage.class, msg -> connect(msg.username))
                 .match(UserChatTextMessage.class, msg -> {
                     System.out.println(msg.getMessage());
                 })
                 .build();
     }
 
-    private static void connect(ActorSelection managingServer, ActorRef user, String username) {
+    private void connect(String username) {
         Future<Object> rt = Patterns.ask(managingServer, new ManagingServer.Connect(username), timeout);
         try {
             Object result = Await.result(rt, timeout.duration());
@@ -155,7 +164,7 @@ public class ChatUser extends AbstractActor {
 //        return targetRef;
 //    }
 
-    private static void cli(ActorSelection managingServer, ActorRef user) {
+    private static void cli(ActorRef user) {
         Scanner in = new Scanner(System.in);
         do {
             System.out.print(">>");
@@ -163,18 +172,18 @@ public class ChatUser extends AbstractActor {
 
             if(input.startsWith("/user")) {
                 String[] cmd_parts = input.split("\\s+");
-                cli_user(managingServer, user, cmd_parts);
+                cli_user(user, cmd_parts);
             }
 
 
         } while(true);
     }
 
-    private static void cli_user(ActorSelection managingServer, ActorRef user, String[] cmd_parts) {
+    private static void cli_user(ActorRef user, String[] cmd_parts) {
         String cmd = cmd_parts[1];
         switch(cmd) {
             case "connect":
-                connect(managingServer, user, cmd_parts[2]);
+                user.tell(new ConnectControlMessage(cmd_parts[2]), ActorRef.noSender());
                 break;
             case "disconnect":
                 break;
@@ -187,12 +196,10 @@ public class ChatUser extends AbstractActor {
 
     public static void main(String[] args) {
         final ActorSystem system = ActorSystem.create("chatUser", ConfigFactory.load("chatUser"));
-        final ActorSelection managingServer = system.actorSelection("akka://Whatsapp@127.0.0.1:2552/user/managingServer");
         try {
             final ActorRef user =
                     system.actorOf(ChatUser.props(), "user");
-
-            cli(managingServer, user);
+            cli(user);
         } catch (Exception ioe) {
         } finally {
             system.terminate();
