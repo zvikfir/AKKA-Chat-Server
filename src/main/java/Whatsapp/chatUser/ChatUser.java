@@ -122,7 +122,7 @@ public class ChatUser extends AbstractActor {
                 .match(DisconnectControlMessage.class, msg -> disconnect())
                 .match(TextControlMessage.class, msg -> text(msg.target, msg.msg))
                 .match(FileControlMessage.class, msg -> file(msg.target, msg.file))
-                .match(UserChatTextMessage.class, msg -> System.out.println(msg.getMessage()))
+                .match(UserChatTextMessage.class, msg -> log.info(msg.getMessage()))
                 .match(UserChatFileMessage.class, msg -> {})
                 .build();
     }
@@ -174,14 +174,17 @@ public class ChatUser extends AbstractActor {
     }
 
     private ActorRef fetchTargetRef(String target) {
-        ActorRef targetRef = null;
+        ActorPath targetPath;
 
         Future<Object> rt = Patterns.ask(managingServer, new ManagingServer.FetchTargetUserRef(target), timeout);
         try {
-            targetRef = (ActorRef) Await.result(rt, timeout.duration());
+            targetPath = (ActorPath) Await.result(rt, timeout.duration());
         } catch (Exception e) {
             System.out.println("server is offline!");
+            return null;
         }
+
+        ActorRef targetRef = getContext().actorSelection(targetPath).anchor();
 
         if (targetRef == ActorRef.noSender())
             System.out.println(String.format("%s does not exist!", target));
