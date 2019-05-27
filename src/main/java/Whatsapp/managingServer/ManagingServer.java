@@ -82,7 +82,7 @@ public class ManagingServer extends AbstractActor {
         }
     }
 
-    public static class Disconnect {
+    public static class Disconnect implements Serializable{
         String username;
         public Disconnect(String username) {
             this.username = username;
