@@ -1,10 +1,7 @@
 package Whatsapp.managingServer;
 
 import Whatsapp.chatUser.ChatUser;
-import akka.actor.AbstractActor;
-import akka.actor.ActorRef;
-import akka.actor.ActorSystem;
-import akka.actor.Props;
+import akka.actor.*;
 import akka.event.Logging;
 import akka.event.LoggingAdapter;
 import com.typesafe.config.ConfigFactory;
@@ -17,14 +14,14 @@ import java.util.HashMap;
 public class ManagingServer extends AbstractActor {
     LoggingAdapter log = Logging.getLogger(getContext().getSystem(), this);
 
-    private HashMap<String, ActorRef> users;
+    private HashMap<String, ActorPath> users;
 
     public ManagingServer() {
-        this.users = new HashMap<String, ActorRef>();
+        this.users = new HashMap<String, ActorPath>();
     }
 
     static public Props props() {
-        return Props.create(ManagingServer.class, () -> new ManagingServer());
+        return Props.create(ManagingServer.class, ManagingServer::new);
     }
 
     public static void main(String[] args) {
@@ -54,7 +51,7 @@ public class ManagingServer extends AbstractActor {
                                 String.format("%s is in use!", connect.userName)), getSelf());
                     } else {
                         log.info("received connect");
-                        this.users.put(connect.userName, getSender());
+                        this.users.put(connect.userName, getSender().path());
                         getSender().tell(new ChatUser.UserConnectSuccess(
                                 String.format("%s has connected successfully!", connect.userName)), getSelf());
                     }
@@ -65,7 +62,7 @@ public class ManagingServer extends AbstractActor {
                             String.format("%s has been disconnected successfully!", disconnect.username)), getSelf());
                 })
                 .match(FetchTargetUserRef.class, fetchTarget -> {
-                    ActorRef target = ActorRef.noSender();
+                    ActorPath target = ActorRef.noSender().path();
                     if (users.containsKey(fetchTarget.target)) {
                         target = users.get(fetchTarget.target);
                     }
