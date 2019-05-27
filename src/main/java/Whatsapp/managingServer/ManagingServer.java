@@ -54,10 +54,15 @@ public class ManagingServer extends AbstractActor {
                                 String.format("%s is in use!", connect.userName)), getSelf());
                     } else {
                         log.info("received connect");
+                        this.userNames.add(connect.userName);
                         getSender().tell(new ChatUser.UserConnectSuccess(
                                 String.format("%s has connected successfully!", connect.userName)), getSelf());
-                        this.userNames.add(connect.userName);
                     }
+                })
+                .match(Disconnect.class, discoonect -> {
+                    this.userNames.remove(discoonect.username);
+                    getSender().tell(new ChatUser.UserDisconnectSuccess(
+                            String.format("%s has been disconnected successfully!", discoonect.username)), getSelf());
                 })
                 .build();
     }
