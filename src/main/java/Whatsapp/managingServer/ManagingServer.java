@@ -11,16 +11,16 @@ import com.typesafe.config.ConfigFactory;
 
 import java.io.IOException;
 import java.io.Serializable;
-import java.util.ArrayList;
+import java.util.HashMap;
 
 
 public class ManagingServer extends AbstractActor {
     LoggingAdapter log = Logging.getLogger(getContext().getSystem(), this);
 
-    private ArrayList<String> userNames;
+    private HashMap<String, ActorRef> users;
 
     public ManagingServer() {
-        this.userNames = new ArrayList<String>();
+        this.users = new HashMap<String, ActorRef>();
     }
 
     static public Props props() {
@@ -49,20 +49,27 @@ public class ManagingServer extends AbstractActor {
     public Receive createReceive() {
         return receiveBuilder()
                 .match(Connect.class, connect -> {
-                    if (userNames.contains(connect.userName)) {
+                    if (users.containsKey(connect.userName)) {
                         getSender().tell(new ChatUser.UserConnectFailure(
                                 String.format("%s is in use!", connect.userName)), getSelf());
                     } else {
                         log.info("received connect");
-                        this.userNames.add(connect.userName);
+                        this.users.put(connect.userName, getSender());
                         getSender().tell(new ChatUser.UserConnectSuccess(
                                 String.format("%s has connected successfully!", connect.userName)), getSelf());
                     }
                 })
-                .match(Disconnect.class, discoonect -> {
-                    this.userNames.remove(discoonect.username);
+                .match(Disconnect.class, disconnect -> {
+                    this.users.remove(disconnect.username);
                     getSender().tell(new ChatUser.UserDisconnectSuccess(
-                            String.format("%s has been disconnected successfully!", discoonect.username)), getSelf());
+                            String.format("%s has been disconnected successfully!", disconnect.username)), getSelf());
+                })
+                .match(FetchTargetUserRef.class, fetchTarget -> {
+                    ActorRef target = ActorRef.noSender();
+                    if (users.containsKey(fetchTarget.target)) {
+                        target = users.get(fetchTarget.target);
+                    }
+                    getSender().tell(target, getSelf());
                 })
                 .build();
     }
@@ -75,15 +82,17 @@ public class ManagingServer extends AbstractActor {
         }
     }
 
-    public static class FetchTargetUserRef {
+    public static class FetchTargetUserRef implements Serializable {
         String target;
+
         public FetchTargetUserRef(String target) {
             this.target = target;
         }
     }
 
-    public static class Disconnect implements Serializable{
+    public static class Disconnect implements Serializable {
         String username;
+
         public Disconnect(String username) {
             this.username = username;
         }
