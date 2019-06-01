@@ -14,10 +14,10 @@ import java.util.HashMap;
 public class ManagingServer extends AbstractActor {
     LoggingAdapter log = Logging.getLogger(getContext().getSystem(), this);
 
-    private HashMap<String, String> users;
+    private HashMap<String, ActorRef> users;
 
     public ManagingServer() {
-        this.users = new HashMap<String, String>();
+        this.users = new HashMap<String, ActorRef>();
     }
 
     static public Props props() {
@@ -62,7 +62,7 @@ public class ManagingServer extends AbstractActor {
                             String.format("%s has been disconnected successfully!", disconnect.username)), getSelf());
                 })
                 .match(FetchTargetUserRef.class, fetchTarget -> {
-                    String target = null;
+                    ActorRef target = null;
                     if (users.containsKey(fetchTarget.target)) {
                         target = users.get(fetchTarget.target);
                     }
@@ -72,10 +72,10 @@ public class ManagingServer extends AbstractActor {
     }
 
     public static class Connect implements Serializable {
-        String userName;
-        String sourcePath;
+        final String userName;
+        final ActorRef sourcePath;
 
-        public Connect(String userName, String sourcePath) {
+        public Connect(String userName, ActorRef sourcePath) {
             this.userName = userName;
             this.sourcePath = sourcePath;
         }

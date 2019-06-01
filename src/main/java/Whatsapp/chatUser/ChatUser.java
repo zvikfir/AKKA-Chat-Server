@@ -12,6 +12,7 @@ import scala.concurrent.Future;
 import scala.concurrent.duration.Duration;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.Serializable;
 import java.nio.file.Files;
@@ -106,7 +107,14 @@ public class ChatUser extends AbstractActor {
     public static class UserChatFileMessage implements Serializable {
         String source;
         byte[] file;
-        String targetFilePath;
+
+        final static String message = "File received: %s";
+
+        public String getMessage(String targetFilePath) {
+            LocalDateTime now = LocalDateTime.now();
+            String time = String.format("%d:%d", now.getHour(), now.getMinute());
+            return String.format("[%s][user][%s]%s", time, source, String.format(message, targetFilePath));
+        }
 
         public UserChatFileMessage(String source, byte[] file) {
             this.source = source;
@@ -123,12 +131,20 @@ public class ChatUser extends AbstractActor {
                 .match(TextControlMessage.class, msg -> text(msg.target, msg.msg))
                 .match(FileControlMessage.class, msg -> file(msg.target, msg.file))
                 .match(UserChatTextMessage.class, msg -> log.info(msg.getMessage()))
-                .match(UserChatFileMessage.class, msg -> {})
+                .match(UserChatFileMessage.class, msg -> {
+                    File tmpFile = File.createTempFile("chatUser-file", ".tmp");
+                    String targetFilePath = tmpFile.getAbsolutePath();
+                    FileOutputStream out = new FileOutputStream(targetFilePath);
+                    out.write(msg.file);
+                    out.close();
+
+                    log.info(msg.getMessage(targetFilePath));
+                })
                 .build();
     }
 
     private void connect(String username) {
-        Future<Object> rt = Patterns.ask(managingServer, new ManagingServer.Connect(username, getSelf().toString()), timeout);
+        Future<Object> rt = Patterns.ask(managingServer, new ManagingServer.Connect(username, getSelf()), timeout);
         try {
             Object result = Await.result(rt, timeout.duration());
             if (result instanceof UserConnectSuccess) {
@@ -174,24 +190,22 @@ public class ChatUser extends AbstractActor {
     }
 
     private ActorRef fetchTargetRef(String target) {
-        ActorPath targetPath;
+        ActorRef targetActorRef;
 
         Future<Object> rt = Patterns.ask(managingServer, new ManagingServer.FetchTargetUserRef(target), timeout);
         try {
-            targetPath = (ActorPath) Await.result(rt, timeout.duration());
+            targetActorRef = (ActorRef) Await.result(rt, timeout.duration());
         } catch (Exception e) {
             System.out.println("server is offline!");
             return null;
         }
 
-        ActorRef targetRef = getContext().actorSelection(targetPath).anchor();
-
-        if (targetRef == ActorRef.noSender())
+        if (targetActorRef == ActorRef.noSender())
             System.out.println(String.format("%s does not exist!", target));
 
-        log.info(String.format("fetched path: %s", targetPath.toString()));
+        log.info(String.format("fetched path: %s", targetActorRef));
 
-        return targetRef;
+        return targetActorRef;
     }
 
     private static void cli(ActorRef user) {
