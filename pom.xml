@@ -1,4 +1,3 @@
-<!-- #build-sample -->
 <project>
     <modelVersion>4.0.0</modelVersion>
 
@@ -7,7 +6,7 @@
     <version>1.0</version>
 
     <properties>
-      <akka.version>2.6.0-M2</akka.version>
+        <akka.version>2.6.0-M2</akka.version>
     </properties>
 
     <dependencies>
@@ -53,7 +52,7 @@
                     <executable>java</executable>
                     <arguments>
                         <argument>-classpath</argument>
-                        <classpath />
+                        <classpath/>
                         <argument>com.lightbend.akka.sample.AkkaQuickstart</argument>
                     </arguments>
                 </configuration>

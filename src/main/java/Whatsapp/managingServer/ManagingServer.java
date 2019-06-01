@@ -1,7 +1,10 @@
 package Whatsapp.managingServer;
 
 import Whatsapp.chatUser.ChatUser;
-import akka.actor.*;
+import akka.actor.AbstractActor;
+import akka.actor.ActorRef;
+import akka.actor.ActorSystem;
+import akka.actor.Props;
 import akka.event.Logging;
 import akka.event.LoggingAdapter;
 import com.typesafe.config.ConfigFactory;
@@ -28,15 +31,13 @@ public class ManagingServer extends AbstractActor {
         final ActorSystem system = ActorSystem.create("Whatsapp", ConfigFactory.load("managingServer"));
 
         try {
-            //#create-actors
-            final ActorRef managingServerActor =
-                    system.actorOf(ManagingServer.props(), "managingServer");
-            //#create-actors
+            final ActorRef managingServerActor = system.actorOf(ManagingServer.props(), "managingServer");
 
             System.out.println(">>> Press ENTER to exit <<<");
             System.in.read();
 
         } catch (IOException ioe) {
+            System.out.println(ioe.getMessage());
         } finally {
             system.terminate();
         }
@@ -45,30 +46,36 @@ public class ManagingServer extends AbstractActor {
     @Override
     public Receive createReceive() {
         return receiveBuilder()
-                .match(Connect.class, connect -> {
-                    if (users.containsKey(connect.userName)) {
-                        getSender().tell(new ChatUser.UserConnectFailure(
-                                String.format("%s is in use!", connect.userName)), getSelf());
-                    } else {
-                        log.info("received connect");
-                        this.users.put(connect.userName, connect.sourcePath);
-                        getSender().tell(new ChatUser.UserConnectSuccess(
-                                String.format("%s has connected successfully!", connect.userName)), getSelf());
-                    }
-                })
-                .match(Disconnect.class, disconnect -> {
-                    this.users.remove(disconnect.username);
-                    getSender().tell(new ChatUser.UserDisconnectSuccess(
-                            String.format("%s has been disconnected successfully!", disconnect.username)), getSelf());
-                })
-                .match(FetchTargetUserRef.class, fetchTarget -> {
-                    ActorRef target = null;
-                    if (users.containsKey(fetchTarget.target)) {
-                        target = users.get(fetchTarget.target);
-                    }
-                    getSender().tell(target, getSelf());
-                })
+                .match(Connect.class, this::connectRequest)
+                .match(FetchTargetUserRef.class, this::fetchTargetRequest)
+                .match(Disconnect.class, this::disconnectRequest)
                 .build();
+    }
+
+    private void connectRequest(Connect connect) {
+        if (users.containsKey(connect.userName)) {
+            getSender().tell(new ChatUser.UserConnectFailure(
+                    String.format("%s is in use!", connect.userName)), getSelf());
+        } else {
+            log.info("received connect");
+            this.users.put(connect.userName, connect.sourcePath);
+            getSender().tell(new ChatUser.UserConnectSuccess(
+                    String.format("%s has connected successfully!", connect.userName)), getSelf());
+        }
+    }
+
+    private void disconnectRequest(Disconnect disconnect) {
+        this.users.remove(disconnect.username);
+        getSender().tell(new ChatUser.UserDisconnectSuccess(
+                String.format("%s has been disconnected successfully!", disconnect.username)), getSelf());
+    }
+
+    private void fetchTargetRequest(FetchTargetUserRef fetchTarget) {
+        ActorRef target = null;
+        if (users.containsKey(fetchTarget.target)) {
+            target = users.get(fetchTarget.target);
+        }
+        getSender().tell(target, getSelf());
     }
 
     public static class Connect implements Serializable {
