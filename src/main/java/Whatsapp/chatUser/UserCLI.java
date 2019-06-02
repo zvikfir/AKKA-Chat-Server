@@ -30,10 +30,23 @@ public class UserCLI {
     private static void cli_group(ActorRef user, String[] cmd_parts) {
         String cmd = cmd_parts[1];
         switch (cmd) {
-            // /user connect <username>
+            // /group create <group-name>
             case "create":
                 user.tell(new ChatActor.CreateGroupControlMessage(cmd_parts[2]), ActorRef.noSender());
                 break;
+            // /group leave <group-name>
+            case "leave":
+                user.tell(new ChatActor.LeaveGroupControlMessage(cmd_parts[2]), ActorRef.noSender());
+                break;
+            // /group send text <group-name> <message>
+            // /group send file <group-name> <sourceFilePath>
+            // /group user invite <group-name> <targetUsername>
+            // /group user remove <group-name> <targetUsername>
+            // /group user mute <group-name> <targetUsername> <time-in-seconds>
+            // /group user unmute <group-name> <targetUsername>
+            // /group coadmin add <group-name> <targetUsername>
+            // /group coadmin remove <group-name> <targetUsername>
+
         }
     }
 

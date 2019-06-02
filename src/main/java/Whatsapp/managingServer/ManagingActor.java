@@ -22,6 +22,7 @@ public class ManagingActor extends AbstractActor {
 
     public ManagingActor() {
         this.users = new HashMap<String, ActorRef>();
+        this.groups = new HashMap<String, ActorRef>();
     }
 
     static public Props props() {
@@ -47,28 +48,31 @@ public class ManagingActor extends AbstractActor {
     @Override
     public Receive createReceive() {
         return receiveBuilder()
-                .match(Connect.class, this::connectRequest)
+                .match(UserConnectMessage.class, this::connectRequest)
                 .match(FetchTargetUserRef.class, this::fetchTargetRequest)
-                .match(Disconnect.class, this::disconnectRequest)
-                .match(GroupCrete.class, this::groupCreateRequest)
+                .match(UserDisconnectMessage.class, this::disconnectRequest)
+                .match(GroupCreateMessage.class, this::groupCreateRequest)
                 .build();
     }
 
-    private void groupCreateRequest(GroupCrete groupCreate) {
-        if (groups.containsKey(groupCreate.groupname)) {
+    private void groupCreateRequest(GroupCreateMessage groupCreate) {
+        if (groups.containsKey(groupCreate.groupName)) {
             getSender().tell(new ChatActor.GroupCreateFailure(
-                    String.format("%s already exists!", groupCreate.groupname)), getSelf());
+                    String.format("%s already exists!", groupCreate.groupName)), getSelf());
         } else {
-            log.info("received group crete");
-            ActorRef groupActor = getContext().actorOf(GroupActor.props(), "managingServer");
+            log.info("received group create");
+            ActorRef groupActor = getContext().actorOf(GroupActor.props(groupCreate.groupName), groupCreate.groupName);
             // TODO: tell group actor to set the sender as group admin
-            this.groups.put(groupCreate.groupname, groupActor);
-            getSender().tell(new ChatActor.UserConnectSuccess(
-                    String.format("%s created successfully!", groupCreate.groupname)), getSelf());
+            this.groups.put(groupCreate.groupName, groupActor);
+
+            groupActor.tell(new GroupActor.SetAdminMessage(groupCreate.username, groupCreate.sourcePath), getSelf());
+
+            getSender().tell(new ChatActor.GroupCreateSuccess(
+                    String.format("%s created successfully!", groupCreate.groupName)), getSelf());
         }
     }
 
-    private void connectRequest(Connect connect) {
+    private void connectRequest(UserConnectMessage connect) {
         if (users.containsKey(connect.username)) {
             getSender().tell(new ChatActor.UserConnectFailure(
                     String.format("%s is in use!", connect.username)), getSelf());
@@ -80,7 +84,7 @@ public class ManagingActor extends AbstractActor {
         }
     }
 
-    private void disconnectRequest(Disconnect disconnect) {
+    private void disconnectRequest(UserDisconnectMessage disconnect) {
         this.users.remove(disconnect.username);
         getSender().tell(new ChatActor.UserDisconnectSuccess(
                 String.format("%s has been disconnected successfully!", disconnect.username)), getSelf());
@@ -94,11 +98,11 @@ public class ManagingActor extends AbstractActor {
         getSender().tell(target, getSelf());
     }
 
-    public static class Connect implements Serializable {
+    public static class UserConnectMessage implements Serializable {
         final String username;
         final ActorRef sourcePath;
 
-        public Connect(String username, ActorRef sourcePath) {
+        public UserConnectMessage(String username, ActorRef sourcePath) {
             this.username = username;
             this.sourcePath = sourcePath;
         }
@@ -112,21 +116,22 @@ public class ManagingActor extends AbstractActor {
         }
     }
 
-    public static class Disconnect implements Serializable {
+    public static class UserDisconnectMessage implements Serializable {
         String username;
 
-        public Disconnect(String username) {
+        public UserDisconnectMessage(String username) {
             this.username = username;
         }
     }
 
-    public static class GroupCrete implements Serializable {
-        final String groupname;
+    public static class GroupCreateMessage implements Serializable {
+        final String username;
+        final String groupName;
         final ActorRef sourcePath;
 
-
-        public GroupCrete(String groupname, ActorRef sourcePath) {
-            this.groupname = groupname;
+        public GroupCreateMessage(String username, String groupName, ActorRef sourcePath) {
+            this.username = username;
+            this.groupName = groupName;
             this.sourcePath = sourcePath;
         }
     }

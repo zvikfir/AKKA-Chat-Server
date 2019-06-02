@@ -39,17 +39,22 @@ public class ChatActor extends AbstractActor {
                 .match(TextControlMessage.class, msg -> text(msg.target, msg.msg))
                 .match(FileControlMessage.class, msg -> file(msg.target, msg.file))
                 .match(UserChatTextMessage.class, msg -> log.info(msg.getMessage()))
-                .match(UserChatFileMessage.class, msg -> fileReceived(msg))
+                .match(UserChatFileMessage.class, this::fileReceived)
                 .match(CreateGroupControlMessage.class, msg -> createGroup(msg.groupname))
+                .match(LeaveGroupControlMessage.class, msg -> leaveGroup(msg.groupName))
                 .build();
     }
 
+    private void leaveGroup(String groupName) {
+        // TODO: if this use is the admin of the group, then the group should be deleted
+
+    }
+
     private void createGroup(String groupname) {
-        Future<Object> rt = Patterns.ask(managingServer, new ManagingActor.GroupCrete(groupname, getSelf()), timeout);
+        Future<Object> rt = Patterns.ask(managingServer, new ManagingActor.GroupCreateMessage(username, groupname, getSelf()), timeout);
         try {
             Object result = Await.result(rt, timeout.duration());
             if (result instanceof GroupCreateSuccess) {
-                // TODO: Save the group name in some way
                 System.out.println(((GroupCreateSuccess) result).msg);
             } else {
                 System.out.println(((GroupCreateFailure) result).msg);
@@ -73,7 +78,7 @@ public class ChatActor extends AbstractActor {
     }
 
     private void connect(String username) {
-        Future<Object> rt = Patterns.ask(managingServer, new ManagingActor.Connect(username, getSelf()), timeout);
+        Future<Object> rt = Patterns.ask(managingServer, new ManagingActor.UserConnectMessage(username, getSelf()), timeout);
         try {
             Object result = Await.result(rt, timeout.duration());
             if (result instanceof UserConnectSuccess) {
@@ -88,7 +93,7 @@ public class ChatActor extends AbstractActor {
     }
 
     private void disconnect() {
-        Future<Object> rt = Patterns.ask(managingServer, new ManagingActor.Disconnect(username), timeout);
+        Future<Object> rt = Patterns.ask(managingServer, new ManagingActor.UserDisconnectMessage(username), timeout);
         try {
             Object result = Await.result(rt, timeout.duration());
             if (result instanceof UserDisconnectSuccess) {
@@ -100,7 +105,7 @@ public class ChatActor extends AbstractActor {
     }
 
     private void text(String target, String msg) {
-        ActorRef targetRef = fetchTargetRef(target);
+        ActorRef targetRef = fetchUserRef(target);
 
         if (targetRef == ActorRef.noSender())
             return;
@@ -109,7 +114,7 @@ public class ChatActor extends AbstractActor {
     }
 
     private void file(String target, byte[] file) {
-        ActorRef targetRef = fetchTargetRef(target);
+        ActorRef targetRef = fetchUserRef(target);
 
         if (targetRef == ActorRef.noSender())
             return;
@@ -117,7 +122,7 @@ public class ChatActor extends AbstractActor {
         targetRef.tell(new UserChatFileMessage(username, file), getSelf());
     }
 
-    private ActorRef fetchTargetRef(String target) {
+    private ActorRef fetchUserRef(String target) {
         ActorRef targetActorRef;
 
         Future<Object> rt = Patterns.ask(managingServer, new ManagingActor.FetchTargetUserRef(target), timeout);
@@ -131,7 +136,7 @@ public class ChatActor extends AbstractActor {
         if (targetActorRef == ActorRef.noSender())
             System.out.println(String.format("%s does not exist!", target));
 
-        log.info(String.format("fetched path: %s", targetActorRef));
+//        log.info(String.format("fetched path: %s", targetActorRef));
 
         return targetActorRef;
     }
@@ -245,6 +250,14 @@ public class ChatActor extends AbstractActor {
 
         public GroupCreateFailure(String msg) {
             this.msg = msg;
+        }
+    }
+
+    public static class LeaveGroupControlMessage implements Serializable {
+        String groupName;
+
+        public LeaveGroupControlMessage(String groupName) {
+            this.groupName = groupName;
         }
     }
 }
