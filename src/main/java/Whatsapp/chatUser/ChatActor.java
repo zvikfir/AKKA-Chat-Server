@@ -1,5 +1,6 @@
 package Whatsapp.chatUser;
 
+import Whatsapp.managingServer.GroupActor;
 import Whatsapp.managingServer.ManagingActor;
 import akka.actor.AbstractActor;
 import akka.actor.ActorRef;
@@ -18,6 +19,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.Serializable;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.concurrent.TimeUnit;
 
 public class ChatActor extends AbstractActor {
@@ -26,6 +28,7 @@ public class ChatActor extends AbstractActor {
     final ActorSelection managingServer = getContext().actorSelection(MANAGING_SERVER_ADDRESS);
     LoggingAdapter log = Logging.getLogger(getContext().getSystem(), this);
     String username;
+    HashMap<String, ActorRef> groups = new HashMap<String, ActorRef>();
 
     static public Props props() {
         return Props.create(ChatActor.class, ChatActor::new);
@@ -41,26 +44,39 @@ public class ChatActor extends AbstractActor {
                 .match(UserChatTextMessage.class, msg -> log.info(msg.getMessage()))
                 .match(UserChatFileMessage.class, this::fileReceived)
                 .match(CreateGroupControlMessage.class, msg -> createGroup(msg.groupname))
-                .match(LeaveGroupControlMessage.class, msg -> leaveGroup(msg.groupName))
+                .match(LeaveGroupControlMessage.class, msg -> leaveGroup(msg.groupname))
+                .match(UserLeftGroupMessage.class, msg -> log.info(msg.msg))
                 .build();
     }
 
-    private void leaveGroup(String groupName) {
-        // TODO: if this use is the admin of the group, then the group should be deleted
-
+    private void leaveGroup(String groupname) {
+        // TODO: if this use is the admin of the group, then the group should be deleted and the managing server
+        //  needs to be notified.
+        Future<Object> rt = Patterns.ask(groups.get(groupname), new GroupActor.GroupLeaveMessage(username, groupname,
+                getSelf()), timeout);
+        try {
+            Object result = Await.result(rt, timeout.duration());
+            if (result instanceof GroupLeaveError) {
+                log.info(((GroupLeaveError) result).msg);
+            }
+        } catch (Exception e) {
+            log.info("server is offline!");
+        }
     }
 
     private void createGroup(String groupname) {
-        Future<Object> rt = Patterns.ask(managingServer, new ManagingActor.GroupCreateMessage(username, groupname, getSelf()), timeout);
+        Future<Object> rt = Patterns.ask(managingServer, new ManagingActor.GroupCreateMessage(username, groupname,
+                getSelf()), timeout);
         try {
             Object result = Await.result(rt, timeout.duration());
             if (result instanceof GroupCreateSuccess) {
-                System.out.println(((GroupCreateSuccess) result).msg);
+                groups.put(groupname, ((GroupCreateSuccess) result).groupRef);
+                log.info(((GroupCreateSuccess) result).msg);
             } else {
-                System.out.println(((GroupCreateFailure) result).msg);
+                log.info(((GroupCreateFailure) result).msg);
             }
         } catch (Exception e) {
-            System.out.println("server is offline!");
+            log.info("server is offline!");
         }
     }
 
@@ -78,17 +94,18 @@ public class ChatActor extends AbstractActor {
     }
 
     private void connect(String username) {
-        Future<Object> rt = Patterns.ask(managingServer, new ManagingActor.UserConnectMessage(username, getSelf()), timeout);
+        Future<Object> rt = Patterns.ask(managingServer, new ManagingActor.UserConnectMessage(username, getSelf()),
+                timeout);
         try {
             Object result = Await.result(rt, timeout.duration());
             if (result instanceof UserConnectSuccess) {
                 this.username = username;
-                System.out.println(((UserConnectSuccess) result).msg);
+                log.info(((UserConnectSuccess) result).msg);
             } else {
-                System.out.println(((UserConnectFailure) result).msg);
+                log.info(((UserConnectFailure) result).msg);
             }
         } catch (Exception e) {
-            System.out.println("server is offline!");
+            log.info("server is offline!");
         }
     }
 
@@ -97,10 +114,10 @@ public class ChatActor extends AbstractActor {
         try {
             Object result = Await.result(rt, timeout.duration());
             if (result instanceof UserDisconnectSuccess) {
-                System.out.println(((UserDisconnectSuccess) result).msg);
+                log.info(((UserDisconnectSuccess) result).msg);
             }
         } catch (Exception e) {
-            System.out.println("server is offline!");
+            log.info("server is offline!");
         }
     }
 
@@ -129,12 +146,12 @@ public class ChatActor extends AbstractActor {
         try {
             targetActorRef = (ActorRef) Await.result(rt, timeout.duration());
         } catch (Exception e) {
-            System.out.println("server is offline!");
+            log.info("server is offline!");
             return null;
         }
 
         if (targetActorRef == ActorRef.noSender())
-            System.out.println(String.format("%s does not exist!", target));
+            log.info(String.format("%s does not exist!", target));
 
 //        log.info(String.format("fetched path: %s", targetActorRef));
 
@@ -239,9 +256,11 @@ public class ChatActor extends AbstractActor {
 
     public static class GroupCreateSuccess implements Serializable {
         String msg;
+        ActorRef groupRef;
 
-        public GroupCreateSuccess(String msg) {
+        public GroupCreateSuccess(String msg, ActorRef groupRef) {
             this.msg = msg;
+            this.groupRef = groupRef;
         }
     }
 
@@ -254,10 +273,26 @@ public class ChatActor extends AbstractActor {
     }
 
     public static class LeaveGroupControlMessage implements Serializable {
-        String groupName;
+        String groupname;
 
-        public LeaveGroupControlMessage(String groupName) {
-            this.groupName = groupName;
+        public LeaveGroupControlMessage(String groupname) {
+            this.groupname = groupname;
+        }
+    }
+
+    public static class GroupLeaveError implements Serializable {
+        String msg;
+
+        public GroupLeaveError(String msg) {
+            this.msg = msg;
+        }
+    }
+
+    public static class UserLeftGroupMessage implements Serializable {
+        String msg;
+
+        public UserLeftGroupMessage(String msg) {
+            this.msg = msg;
         }
     }
 }

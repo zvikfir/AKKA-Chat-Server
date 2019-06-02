@@ -52,23 +52,29 @@ public class ManagingActor extends AbstractActor {
                 .match(FetchTargetUserRef.class, this::fetchTargetRequest)
                 .match(UserDisconnectMessage.class, this::disconnectRequest)
                 .match(GroupCreateMessage.class, this::groupCreateRequest)
+                .match(GroupDeleteMessage.class, this::deleteGroup)
                 .build();
     }
 
+    private void deleteGroup(GroupDeleteMessage groupDeleteMessage) {
+        // TODO: Maybe stop the child
+        groups.remove(groupDeleteMessage.groupname);
+    }
+
     private void groupCreateRequest(GroupCreateMessage groupCreate) {
-        if (groups.containsKey(groupCreate.groupName)) {
+        if (groups.containsKey(groupCreate.groupname)) {
             getSender().tell(new ChatActor.GroupCreateFailure(
-                    String.format("%s already exists!", groupCreate.groupName)), getSelf());
+                    String.format("%s already exists!", groupCreate.groupname)), getSelf());
         } else {
             log.info("received group create");
-            ActorRef groupActor = getContext().actorOf(GroupActor.props(groupCreate.groupName), groupCreate.groupName);
+            ActorRef groupActor = getContext().actorOf(GroupActor.props(groupCreate.groupname), groupCreate.groupname);
             // TODO: tell group actor to set the sender as group admin
-            this.groups.put(groupCreate.groupName, groupActor);
+            this.groups.put(groupCreate.groupname, groupActor);
 
             groupActor.tell(new GroupActor.SetAdminMessage(groupCreate.username, groupCreate.sourcePath), getSelf());
 
-            getSender().tell(new ChatActor.GroupCreateSuccess(
-                    String.format("%s created successfully!", groupCreate.groupName)), getSelf());
+            getSender().tell(new ChatActor.GroupCreateSuccess(String.format("%s created successfully!",
+                    groupCreate.groupname), groupActor), getSelf());
         }
     }
 
@@ -109,7 +115,7 @@ public class ManagingActor extends AbstractActor {
     }
 
     public static class FetchTargetUserRef implements Serializable {
-        String target;
+        final String target;
 
         public FetchTargetUserRef(String target) {
             this.target = target;
@@ -117,7 +123,7 @@ public class ManagingActor extends AbstractActor {
     }
 
     public static class UserDisconnectMessage implements Serializable {
-        String username;
+        final String username;
 
         public UserDisconnectMessage(String username) {
             this.username = username;
@@ -126,13 +132,21 @@ public class ManagingActor extends AbstractActor {
 
     public static class GroupCreateMessage implements Serializable {
         final String username;
-        final String groupName;
+        final String groupname;
         final ActorRef sourcePath;
 
-        public GroupCreateMessage(String username, String groupName, ActorRef sourcePath) {
+        public GroupCreateMessage(String username, String groupname, ActorRef sourcePath) {
             this.username = username;
-            this.groupName = groupName;
+            this.groupname = groupname;
             this.sourcePath = sourcePath;
+        }
+    }
+
+    public static class GroupDeleteMessage implements Serializable {
+        final String groupname;
+
+        public GroupDeleteMessage(String groupname) {
+            this.groupname = groupname;
         }
     }
 }
