@@ -57,7 +57,7 @@ public class ManagingActor extends AbstractActor {
     }
 
     private void deleteGroup(GroupDeleteMessage groupDeleteMessage) {
-        // TODO: Maybe stop the child
+        getContext().stop(groups.get(groupDeleteMessage.groupname));
         groups.remove(groupDeleteMessage.groupname);
     }
 

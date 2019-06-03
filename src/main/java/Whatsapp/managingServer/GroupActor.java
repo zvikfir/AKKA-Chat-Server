@@ -6,18 +6,29 @@ import akka.actor.ActorRef;
 import akka.actor.Props;
 import akka.event.Logging;
 import akka.event.LoggingAdapter;
+import akka.routing.BroadcastRoutingLogic;
+import akka.routing.Routee;
+import akka.routing.Router;
 import javafx.util.Pair;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 
 public class GroupActor extends AbstractActor {
     LoggingAdapter log = Logging.getLogger(getContext().getSystem(), this);
+    Router router;
     private Pair<String, ActorRef> admin;
     private HashMap<String, ActorRef> coAdmins;
     private HashMap<String, ActorRef> users;
     private HashMap<String, ActorRef> mutedUsers;
     private String groupname;
+
+    {
+        List<Routee> routees = new ArrayList<Routee>();
+        router = new Router(new BroadcastRoutingLogic(), routees);
+    }
 
     public GroupActor(String groupname) {
         this.groupname = groupname;
@@ -37,32 +48,33 @@ public class GroupActor extends AbstractActor {
 
     private void setAdmin(String username, ActorRef userPath) {
         if (admin != null) {
-            // TODO: I think print here won't reach anywhere
-            log.error("Admin is already set for group");
             return;
         }
 
         this.admin = new Pair<String, ActorRef>(username, userPath);
-        // TODO: I think print here won't reach anywhere
-        log.info(String.format("%s is set to admin in group %s", username, groupname));
+        getContext().watch(userPath);
+        router.addRoutee(userPath);
     }
 
     private void leaveGroup(GroupLeaveMessage leaveGroupMessage) {
-        if (admin.getKey().equals(leaveGroupMessage.username)) {
-            // TODO: send broadcast of UserLeftGroupMessage
-            // TODO: Remove all users and broadcast and send group closed as broadcast
-            getContext().parent().tell(new ManagingActor.GroupDeleteMessage(groupname), getSelf());
-            // TODO: Stop group (maybe in server)
-        }
-        // TODO: send broadcast of UserLeftGroupMessage
-        coAdmins.remove(leaveGroupMessage.username);
-        // TODO: Send UserLeftGroupMessage
-        users.remove(leaveGroupMessage.username);
-        if (mutedUsers.containsKey(leaveGroupMessage.username)) {
-
+        String username = leaveGroupMessage.username;
+        if (admin.getKey().equals(username) || coAdmins.containsKey(username) ||
+                users.containsKey(username) || mutedUsers.containsKey(username)) {
+            router.route(new ChatActor.UserLeftGroupMessage(String.format("%s has left %s!",
+                    username, groupname)), getSelf());
+            // Deletes if the user exists in one of this.
+            coAdmins.remove(username);
+            users.remove(username);
+            mutedUsers.remove(username);
+            if (admin.getKey().equals(username)) {
+                // TODO: Remove all users and broadcast. Is it really needed?
+                router.route(new ChatActor.UserLeftGroupMessage(String.format("%s admin has closed %s!", groupname,
+                        groupname)), getSelf());
+                getContext().parent().tell(new ManagingActor.GroupDeleteMessage(groupname), getSelf());
+            }
         } else {
-            getSender().tell(new ChatActor.GroupLeaveError(String.format("%s is not in %s!",
-                    leaveGroupMessage.username, leaveGroupMessage.groupname)), getSelf());
+            getSender().tell(new ChatActor.GroupLeaveError(String.format("%s is not in %s!", username,
+                    leaveGroupMessage.groupname)), getSelf());
         }
     }
 
