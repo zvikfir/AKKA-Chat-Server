@@ -66,9 +66,7 @@ public class ManagingActor extends AbstractActor {
             getSender().tell(new ChatActor.GroupCreateFailure(
                     String.format("%s already exists!", groupCreate.groupname)), getSelf());
         } else {
-            log.info("received group create");
             ActorRef groupActor = getContext().actorOf(GroupActor.props(groupCreate.groupname), groupCreate.groupname);
-            // TODO: tell group actor to set the sender as group admin
             this.groups.put(groupCreate.groupname, groupActor);
 
             groupActor.tell(new GroupActor.SetAdminMessage(groupCreate.username, groupCreate.sourcePath), getSelf());
@@ -83,7 +81,6 @@ public class ManagingActor extends AbstractActor {
             getSender().tell(new ChatActor.UserConnectFailure(
                     String.format("%s is in use!", connect.username)), getSelf());
         } else {
-            log.info("received connect");
             this.users.put(connect.username, connect.sourcePath);
             getSender().tell(new ChatActor.UserConnectSuccess(
                     String.format("%s has connected successfully!", connect.username)), getSelf());

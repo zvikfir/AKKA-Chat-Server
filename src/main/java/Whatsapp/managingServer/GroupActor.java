@@ -37,11 +37,13 @@ public class GroupActor extends AbstractActor {
 
     private void setAdmin(String username, ActorRef userPath) {
         if (admin != null) {
+            // TODO: I think print here won't reach anywhere
             log.error("Admin is already set for group");
             return;
         }
 
         this.admin = new Pair<String, ActorRef>(username, userPath);
+        // TODO: I think print here won't reach anywhere
         log.info(String.format("%s is set to admin in group %s", username, groupname));
     }
 
