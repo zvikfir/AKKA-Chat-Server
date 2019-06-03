@@ -6,6 +6,7 @@ import akka.actor.ActorRef;
 import akka.actor.Props;
 import akka.event.Logging;
 import akka.event.LoggingAdapter;
+import akka.routing.ActorRefRoutee;
 import akka.routing.BroadcastRoutingLogic;
 import akka.routing.Routee;
 import akka.routing.Router;
@@ -42,7 +43,7 @@ public class GroupActor extends AbstractActor {
     public Receive createReceive() {
         return receiveBuilder()
                 .match(SetAdminMessage.class, msg -> setAdmin(msg.username, msg.userPath))
-                .match(GroupLeaveMessage.class, this::leaveGroup)
+                .match(GroupLeaveMessage.class, msg -> leaveGroup(msg.username))
                 .build();
     }
 
@@ -52,29 +53,35 @@ public class GroupActor extends AbstractActor {
         }
 
         this.admin = new Pair<String, ActorRef>(username, userPath);
+        coAdmins = new HashMap<String, ActorRef>();
+        users = new HashMap<String, ActorRef>();
+        mutedUsers = new HashMap<String, ActorRef>();
         getContext().watch(userPath);
-        router.addRoutee(userPath);
+        router.addRoutee(new ActorRefRoutee(userPath));
     }
 
-    private void leaveGroup(GroupLeaveMessage leaveGroupMessage) {
-        String username = leaveGroupMessage.username;
+    private void leaveGroup(String username) {
         if (admin.getKey().equals(username) || coAdmins.containsKey(username) ||
                 users.containsKey(username) || mutedUsers.containsKey(username)) {
-            router.route(new ChatActor.UserLeftGroupMessage(String.format("%s has left %s!",
-                    username, groupname)), getSelf());
+            getSender().tell(new ChatActor.GroupLeaveSuccess(), getSelf());
+
             // Deletes if the user exists in one of this.
             coAdmins.remove(username);
             users.remove(username);
             mutedUsers.remove(username);
+
+            router.route(new ChatActor.UserLeftGroupMessage(String.format("%s has left %s!",
+                    username, groupname)), getSelf());
+
             if (admin.getKey().equals(username)) {
-                // TODO: Remove all users and broadcast. Is it really needed?
+                // TODO: Remove all users. Is it really needed?
                 router.route(new ChatActor.UserLeftGroupMessage(String.format("%s admin has closed %s!", groupname,
                         groupname)), getSelf());
                 getContext().parent().tell(new ManagingActor.GroupDeleteMessage(groupname), getSelf());
             }
         } else {
-            getSender().tell(new ChatActor.GroupLeaveError(String.format("%s is not in %s!", username,
-                    leaveGroupMessage.groupname)), getSelf());
+            getSender().tell(new ChatActor.GroupLeaveError(String.format("%s is not in %s!", username, groupname)),
+                    getSelf());
         }
     }
 
@@ -90,12 +97,10 @@ public class GroupActor extends AbstractActor {
 
     public static class GroupLeaveMessage implements Serializable {
         final String username;
-        final String groupname;
         final ActorRef sourcePath;
 
-        public GroupLeaveMessage(String username, String groupname, ActorRef sourcePath) {
+        public GroupLeaveMessage(String username, ActorRef sourcePath) {
             this.username = username;
-            this.groupname = groupname;
             this.sourcePath = sourcePath;
         }
     }

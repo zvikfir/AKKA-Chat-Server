@@ -42,7 +42,7 @@ public class ChatActor extends AbstractActor {
                 .match(TextControlMessage.class, msg -> text(msg.target, msg.msg))
                 .match(FileControlMessage.class, msg -> file(msg.target, msg.file))
                 .match(UserChatTextMessage.class, msg -> log.info(msg.getMessage()))
-                .match(UserChatFileMessage.class, this::fileReceived)
+                .match(UserChatFileMessage.class, msg -> fileReceived(msg))
                 .match(CreateGroupControlMessage.class, msg -> createGroup(msg.groupname))
                 .match(LeaveGroupControlMessage.class, msg -> leaveGroup(msg.groupname))
                 .match(UserLeftGroupMessage.class, msg -> log.info(msg.msg))
@@ -50,10 +50,9 @@ public class ChatActor extends AbstractActor {
     }
 
     private void leaveGroup(String groupname) {
-        // TODO: if this use is the admin of the group, then the group should be deleted and the managing server
-        //  needs to be notified.
-        Future<Object> rt = Patterns.ask(groups.get(groupname), new GroupActor.GroupLeaveMessage(username, groupname,
-                getSelf()), timeout);
+        Future<Object> rt = Patterns.ask(groups.get(groupname), new GroupActor.GroupLeaveMessage(username, getSelf())
+                , timeout);
+        groups.remove(groupname);
         try {
             Object result = Await.result(rt, timeout.duration());
             if (result instanceof GroupLeaveError) {
@@ -293,6 +292,11 @@ public class ChatActor extends AbstractActor {
 
         public UserLeftGroupMessage(String msg) {
             this.msg = msg;
+        }
+    }
+
+    public static class GroupLeaveSuccess implements Serializable {
+        public GroupLeaveSuccess() {
         }
     }
 }
