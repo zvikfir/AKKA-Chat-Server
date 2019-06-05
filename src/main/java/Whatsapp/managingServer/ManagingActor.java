@@ -54,14 +54,14 @@ public class ManagingActor extends AbstractActor {
                 .match(GroupActor.GroupCreateMessage.class, this::groupCreateRequest)
                 .match(GroupDeleteMessage.class, this::deleteGroup)
                 .match(GroupActor.UserChatGroupTextMessage.class, msg -> groupForward(msg.groupName, msg))
+                .match(GroupActor.UserChatGroupFileMessage.class, msg -> groupForward(msg.groupName, msg))
                 .build();
     }
 
     private void groupForward(String groupName, Object msg) {
-        if(!groups.containsKey(groupName)) {
+        if (!groups.containsKey(groupName)) {
             getSender().tell(new ChatActor.ManagingMessage(String.format("%s does not exist!", groupName)), getSelf());
-        }
-        else {
+        } else {
             groups.get(groupName).forward(msg, getContext());
         }
     }

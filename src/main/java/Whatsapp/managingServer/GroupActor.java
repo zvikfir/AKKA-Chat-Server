@@ -43,9 +43,8 @@ public class GroupActor extends AbstractActor {
     public Receive createReceive() {
         return receiveBuilder()
                 .match(GroupCreateMessage.class, this::createGroup)
-                .match(UserChatGroupTextMessage.class, msg -> {
-                    router.route(new UserChatGroupTextMessage(msg.username, msg.groupName, msg.msg), getSelf());
-                })
+                .match(UserChatGroupTextMessage.class, msg -> router.route(msg, getSelf()))
+                .match(UserChatGroupFileMessage.class, msg -> router.route(msg, getSelf()))
 //                .match(GroupLeaveMessage.class, msg -> leaveGroup(msg.username))
                 .build();
     }
@@ -129,6 +128,27 @@ public class GroupActor extends AbstractActor {
             this.username = username;
             this.groupName = groupName;
             this.msg = msg;
+        }
+    }
+
+    public static class UserChatGroupFileMessage implements Serializable {
+        public final byte[] fileContent;
+        public final String groupName;
+        public final String username;
+        final static String message = "File received: %s";
+
+
+        public UserChatGroupFileMessage(String username, String groupname, byte[] fileContant) {
+            this.username = username;
+            this.groupName = groupname;
+            this.fileContent = fileContant;
+
+        }
+
+        public String getMessage() {
+            LocalDateTime now = LocalDateTime.now();
+            String time = String.format("%d:%d", now.getHour(), now.getMinute());
+            return String.format("[%s][%s][%s]%s", time, groupName, username, message);
         }
     }
 }

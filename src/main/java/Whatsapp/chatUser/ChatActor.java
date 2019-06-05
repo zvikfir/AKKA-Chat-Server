@@ -37,17 +37,19 @@ public class ChatActor extends AbstractActor {
     @Override
     public Receive createReceive() {
         return receiveBuilder()
-                .match(ConnectControlMessage.class, msg -> connect(msg.username))
-                .match(DisconnectControlMessage.class, msg -> disconnect())
+                .match(UserCLI.ConnectControlMessage.class, msg -> connect(msg.username))
+                .match(UserCLI.DisconnectControlMessage.class, msg -> disconnect())
                 .match(TextControlMessage.class, msg -> text(msg.target, msg.msg))
                 .match(FileControlMessage.class, msg -> file(msg.target, msg.file))
                 .match(UserChatTextMessage.class, msg -> log.info(msg.getMessage()))
-                .match(UserChatFileMessage.class, msg -> fileReceived(msg))
-                .match(CreateGroupControlMessage.class, msg -> createGroup(msg.groupname))
-                .match(LeaveGroupControlMessage.class, msg -> leaveGroup(msg.groupname))
+                .match(UserChatFileMessage.class, msg -> fileReceived(msg.file, msg.getMessage()))
+                .match(UserCLI.CreateGroupControlMessage.class, msg -> createGroup(msg.groupname))
+                .match(UserCLI.LeaveGroupControlMessage.class, msg -> leaveGroup(msg.groupname))
                 .match(ManagingMessage.class, msg -> log.info(msg.msg))
-                .match(GroupSendTextControlMessage.class, msg -> textGroup(msg.groupName, msg.message))
+                .match(UserCLI.GroupSendTextControlMessage.class, msg -> textGroup(msg.groupName, msg.message))
                 .match(GroupActor.UserChatGroupTextMessage.class, msg -> log.info(msg.getMessage()))
+                .match(UserCLI.GroupSendFileControlMessage.class, msg -> managingServer.tell(new GroupActor.UserChatGroupFileMessage(username, msg.groupname, msg.fileContant), getSelf()))
+                .match(GroupActor.UserChatGroupFileMessage.class, msg -> fileReceived(msg.fileContent, msg.getMessage()))
                 .build();
     }
 
@@ -69,14 +71,14 @@ public class ChatActor extends AbstractActor {
         managingServer.tell(new GroupActor.GroupCreateMessage(username, groupname), getSelf());
     }
 
-    private void fileReceived(UserChatFileMessage msg) {
+    private void fileReceived(byte[] file, String msg) {
         try {
             File tmpFile = File.createTempFile("chatUser-file", ".tmp");
             String targetFilePath = tmpFile.getAbsolutePath();
             FileOutputStream out = new FileOutputStream(targetFilePath);
-            out.write(msg.file);
+            out.write(file);
             out.close();
-            log.info(msg.getMessage(targetFilePath));
+            log.info(String.format(msg, targetFilePath));
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -151,17 +153,6 @@ public class ChatActor extends AbstractActor {
         managingServer.tell(new GroupActor.UserChatGroupTextMessage(username, groupName, msg), getSelf());
     }
 
-    public static class ConnectControlMessage {
-        String username;
-
-        public ConnectControlMessage(String username) {
-            this.username = username;
-        }
-    }
-
-    public static class DisconnectControlMessage {
-    }
-
     public static class TextControlMessage {
         String target;
         String msg;
@@ -179,14 +170,6 @@ public class ChatActor extends AbstractActor {
         public FileControlMessage(String target, byte[] file) {
             this.target = target;
             this.file = file;
-        }
-    }
-
-    public static class CreateGroupControlMessage {
-        String groupname;
-
-        public CreateGroupControlMessage(String groupname) {
-            this.groupname = groupname;
         }
     }
 
@@ -240,20 +223,10 @@ public class ChatActor extends AbstractActor {
             this.file = file;
         }
 
-        public String getMessage(String targetFilePath) {
+        public String getMessage() {
             LocalDateTime now = LocalDateTime.now();
             String time = String.format("%d:%d", now.getHour(), now.getMinute());
-            return String.format("[%s][user][%s]%s", time, source, String.format(message, targetFilePath));
-        }
-    }
-
-    public static class GroupCreateSuccess implements Serializable {
-        String msg;
-        ActorRef groupRef;
-
-        public GroupCreateSuccess(String msg, ActorRef groupRef) {
-            this.msg = msg;
-            this.groupRef = groupRef;
+            return String.format("[%s][user][%s]%s", time, source, message);
         }
     }
 
@@ -265,14 +238,6 @@ public class ChatActor extends AbstractActor {
         }
     }
 
-    public static class LeaveGroupControlMessage implements Serializable {
-        String groupname;
-
-        public LeaveGroupControlMessage(String groupname) {
-            this.groupname = groupname;
-        }
-    }
-
     public static class GroupLeaveError implements Serializable {
         String msg;
 
@@ -280,16 +245,6 @@ public class ChatActor extends AbstractActor {
             this.msg = msg;
         }
     }
-
-    public static class UserLeftGroupMessage implements Serializable {
-        String msg;
-
-        public UserLeftGroupMessage(String msg) {
-            this.msg = msg;
-        }
-    }
-
-    public static class GroupLeaveSuccess implements Serializable { }
 
     public static class ManagingMessage implements Serializable {
         String msg;
@@ -299,13 +254,4 @@ public class ChatActor extends AbstractActor {
         }
     }
 
-    public static class GroupSendTextControlMessage {
-        private final String groupName;
-        private final String message;
-
-        public GroupSendTextControlMessage(String groupName, String message) {
-            this.groupName = groupName;
-            this.message = message;
-        }
-    }
 }
