@@ -39,15 +39,17 @@ public class UserCLI {
                 user.tell(new ChatActor.LeaveGroupControlMessage(cmd_parts[2]), ActorRef.noSender());
                 break;
             // /group send text <group-name> <message>
-            // /group send file <group-name> <sourceFilePath>
-            // /group user invite <group-name> <targetUsername>
+            case "send":
+                cli_group_send(user, cmd_parts);
+                break;
+        }
+                // /group send file <group-name> <sourceFilePath>
+                // /group user invite <group-name> <targetUsername>
             // /group user remove <group-name> <targetUsername>
             // /group user mute <group-name> <targetUsername> <time-in-seconds>
             // /group user unmute <group-name> <targetUsername>
             // /group coadmin add <group-name> <targetUsername>
             // /group coadmin remove <group-name> <targetUsername>
-
-        }
     }
 
     private static void cli_user(ActorRef user, String[] cmd_parts) {
@@ -73,15 +75,37 @@ public class UserCLI {
     }
 
     public static void cli_user_file(ActorRef user, String target, String filePath) {
+        byte[] fileContent = read_file(filePath);
+        if(fileContent == null)
+            return;
+
+        user.tell(new ChatActor.FileControlMessage(target, fileContent), ActorRef.noSender());
+    }
+
+    public static byte[] read_file(String filePath) {
         byte[] fileContent;
         try {
             fileContent = Files.readAllBytes(Paths.get(filePath));
         } catch (IOException e) {
             System.out.println(String.format("%s does not exist!", filePath));
-            return;
+            return null;
         }
+        return fileContent;
+    }
 
-        user.tell(new ChatActor.FileControlMessage(target, fileContent), ActorRef.noSender());
+    private static void cli_group_send(ActorRef user, String[] cmd_parts) {
+        switch (cmd_parts[2]) {
+            case "text":
+                user.tell(new ChatActor.GroupSendTextControlMessage(cmd_parts[3], cmd_parts[4]), ActorRef.noSender());
+                break;
+            case "file":
+                byte[] fileContent = read_file(cmd_parts[4]);
+                if (fileContent == null) {
+                    return;
+                }
+//                user.tell(new ChatActor.GroupSendFileControlMessage(cmd_parts[3], fileContent));
+                break;
+        }
     }
 
     public static void main(String[] args) {

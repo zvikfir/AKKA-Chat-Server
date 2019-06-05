@@ -51,9 +51,19 @@ public class ManagingActor extends AbstractActor {
                 .match(UserConnectMessage.class, this::connectRequest)
                 .match(FetchTargetUserRef.class, this::fetchTargetRequest)
                 .match(UserDisconnectMessage.class, this::disconnectRequest)
-                .match(GroupCreateMessage.class, this::groupCreateRequest)
+                .match(GroupActor.GroupCreateMessage.class, this::groupCreateRequest)
                 .match(GroupDeleteMessage.class, this::deleteGroup)
+                .match(GroupActor.UserChatGroupTextMessage.class, msg -> groupForward(msg.groupName, msg))
                 .build();
+    }
+
+    private void groupForward(String groupName, Object msg) {
+        if(!groups.containsKey(groupName)) {
+            getSender().tell(new ChatActor.ManagingMessage(String.format("%s does not exist!", groupName)), getSelf());
+        }
+        else {
+            groups.get(groupName).forward(msg, getContext());
+        }
     }
 
     private void deleteGroup(GroupDeleteMessage groupDeleteMessage) {
@@ -61,18 +71,14 @@ public class ManagingActor extends AbstractActor {
         groups.remove(groupDeleteMessage.groupname);
     }
 
-    private void groupCreateRequest(GroupCreateMessage groupCreate) {
+    private void groupCreateRequest(GroupActor.GroupCreateMessage groupCreate) {
         if (groups.containsKey(groupCreate.groupname)) {
             getSender().tell(new ChatActor.GroupCreateFailure(
                     String.format("%s already exists!", groupCreate.groupname)), getSelf());
         } else {
             ActorRef groupActor = getContext().actorOf(GroupActor.props(groupCreate.groupname), groupCreate.groupname);
             this.groups.put(groupCreate.groupname, groupActor);
-
-            groupActor.tell(new GroupActor.SetAdminMessage(groupCreate.username, groupCreate.sourcePath), getSelf());
-
-            getSender().tell(new ChatActor.GroupCreateSuccess(String.format("%s created successfully!",
-                    groupCreate.groupname), groupActor), getSelf());
+            groupActor.forward(groupCreate, getContext());
         }
     }
 
@@ -127,18 +133,6 @@ public class ManagingActor extends AbstractActor {
         }
     }
 
-    public static class GroupCreateMessage implements Serializable {
-        final String username;
-        final String groupname;
-        final ActorRef sourcePath;
-
-        public GroupCreateMessage(String username, String groupname, ActorRef sourcePath) {
-            this.username = username;
-            this.groupname = groupname;
-            this.sourcePath = sourcePath;
-        }
-    }
-
     public static class GroupDeleteMessage implements Serializable {
         final String groupname;
 
@@ -146,4 +140,6 @@ public class ManagingActor extends AbstractActor {
             this.groupname = groupname;
         }
     }
+
+
 }

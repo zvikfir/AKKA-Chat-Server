@@ -45,7 +45,9 @@ public class ChatActor extends AbstractActor {
                 .match(UserChatFileMessage.class, msg -> fileReceived(msg))
                 .match(CreateGroupControlMessage.class, msg -> createGroup(msg.groupname))
                 .match(LeaveGroupControlMessage.class, msg -> leaveGroup(msg.groupname))
-                .match(UserLeftGroupMessage.class, msg -> log.info(msg.msg))
+                .match(ManagingMessage.class, msg -> log.info(msg.msg))
+                .match(GroupSendTextControlMessage.class, msg -> textGroup(msg.groupName, msg.message))
+                .match(GroupActor.UserChatGroupTextMessage.class, msg -> log.info(msg.getMessage()))
                 .build();
     }
 
@@ -64,19 +66,7 @@ public class ChatActor extends AbstractActor {
     }
 
     private void createGroup(String groupname) {
-        Future<Object> rt = Patterns.ask(managingServer, new ManagingActor.GroupCreateMessage(username, groupname,
-                getSelf()), timeout);
-        try {
-            Object result = Await.result(rt, timeout.duration());
-            if (result instanceof GroupCreateSuccess) {
-                groups.put(groupname, ((GroupCreateSuccess) result).groupRef);
-                log.info(((GroupCreateSuccess) result).msg);
-            } else {
-                log.info(((GroupCreateFailure) result).msg);
-            }
-        } catch (Exception e) {
-            log.info("server is offline!");
-        }
+        managingServer.tell(new GroupActor.GroupCreateMessage(username, groupname), getSelf());
     }
 
     private void fileReceived(UserChatFileMessage msg) {
@@ -155,6 +145,10 @@ public class ChatActor extends AbstractActor {
 //        log.info(String.format("fetched path: %s", targetActorRef));
 
         return targetActorRef;
+    }
+
+    private void textGroup(String groupName, String msg) {
+        managingServer.tell(new GroupActor.UserChatGroupTextMessage(username, groupName, msg), getSelf());
     }
 
     public static class ConnectControlMessage {
@@ -295,8 +289,23 @@ public class ChatActor extends AbstractActor {
         }
     }
 
-    public static class GroupLeaveSuccess implements Serializable {
-        public GroupLeaveSuccess() {
+    public static class GroupLeaveSuccess implements Serializable { }
+
+    public static class ManagingMessage implements Serializable {
+        String msg;
+
+        public ManagingMessage(String msg) {
+            this.msg = msg;
+        }
+    }
+
+    public static class GroupSendTextControlMessage {
+        private final String groupName;
+        private final String message;
+
+        public GroupSendTextControlMessage(String groupName, String message) {
+            this.groupName = groupName;
+            this.message = message;
         }
     }
 }
