@@ -1,14 +1,15 @@
 package Whatsapp.chatUser;
 
+import Whatsapp.managingServer.GroupActor;
 import akka.actor.ActorRef;
 import akka.actor.ActorSystem;
 import com.typesafe.config.ConfigFactory;
 
 import java.io.IOException;
-import java.io.Serializable;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Scanner;
+import Whatsapp.Messages.UserCLIControlMessages.*;
 
 public class UserCLI {
     public static void cli(ActorRef user) {
@@ -40,17 +41,52 @@ public class UserCLI {
                 user.tell(new LeaveGroupControlMessage(cmd_parts[2]), ActorRef.noSender());
                 break;
             // /group send text <group-name> <message>
+            // /group send file <group-name> <sourceFilePath>
             case "send":
                 cli_group_send(user, cmd_parts);
                 break;
+            // /group coadmin add <group-name> <targetUsername>
+            // /group coadmin remove <group-name> <targetUsername>
+            case "coadmin":
+                cli_group_coAdmin(user, cmd_parts);
+                break;
+            // /group user invite <group-name> <targetUsername>
+            // /group user remove <group-name> <targetUsername>
+            // /group user mute <group-name> <targetUsername> <time-in-seconds>
+            // /group user unmute <group-name> <targetUsername>
+            case "user":
+                cli_group_user(user, cmd_parts);
+                break;
         }
-        // /group send file <group-name> <sourceFilePath>
-        // /group user invite <group-name> <targetUsername>
-        // /group user remove <group-name> <targetUsername>
-        // /group user mute <group-name> <targetUsername> <time-in-seconds>
-        // /group user unmute <group-name> <targetUsername>
-        // /group coadmin add <group-name> <targetUsername>
-        // /group coadmin remove <group-name> <targetUsername>
+
+
+
+
+    }
+
+    private static void cli_group_user(ActorRef user, String[] cmd_parts) {
+        switch(cmd_parts[2]) {
+            case "invite":
+                user.tell(new GroupInviteControlMessage(cmd_parts[3], cmd_parts[4]), ActorRef.noSender());
+                break;
+            case "remove":
+                break;
+            case "mute":
+                break;
+            case "unmute":
+                break;
+        }
+    }
+
+    private static void cli_group_coAdmin(ActorRef user, String[] cmd_parts) {
+        switch(cmd_parts[2]) {
+            case "add":
+                user.tell(new GroupAddCoAdminControlMessage(cmd_parts[3], cmd_parts[4]), ActorRef.noSender());
+                break;
+            case "remove":
+                user.tell(new GroupRemoveCoAdminControlMessage(cmd_parts[3], cmd_parts[4]), ActorRef.noSender());
+                break;
+        }
     }
 
     private static void cli_user(ActorRef user, String[] cmd_parts) {
@@ -66,7 +102,7 @@ public class UserCLI {
                 break;
             // /user text <target> <message>
             case "text":
-                user.tell(new ChatActor.TextControlMessage(cmd_parts[2], cmd_parts[3]), ActorRef.noSender());
+                user.tell(new TextControlMessage(cmd_parts[2], cmd_parts[3]), ActorRef.noSender());
                 break;
             // /user file <target> <sourceFilePath>
             case "file":
@@ -80,7 +116,7 @@ public class UserCLI {
         if (fileContent == null)
             return;
 
-        user.tell(new ChatActor.FileControlMessage(target, fileContent), ActorRef.noSender());
+        user.tell(new FileControlMessage(target, fileContent), ActorRef.noSender());
     }
 
     public static byte[] read_file(String filePath) {
@@ -104,7 +140,7 @@ public class UserCLI {
                 if (fileContent == null) {
                     return;
                 }
-                user.tell(new UserCLI.GroupSendFileControlMessage(cmd_parts[3], fileContent), ActorRef.noSender());
+                user.tell(new GroupSendFileControlMessage(cmd_parts[3], fileContent), ActorRef.noSender());
                 break;
         }
     }
@@ -122,50 +158,6 @@ public class UserCLI {
         }
     }
 
-    public static class ConnectControlMessage {
-        String username;
 
-        public ConnectControlMessage(String username) {
-            this.username = username;
-        }
-    }
 
-    public static class GroupSendTextControlMessage {
-        public final String groupName;
-        public final String message;
-
-        public GroupSendTextControlMessage(String groupName, String message) {
-            this.groupName = groupName;
-            this.message = message;
-        }
-    }
-
-    public static class DisconnectControlMessage {
-    }
-
-    public static class CreateGroupControlMessage {
-        String groupname;
-
-        public CreateGroupControlMessage(String groupname) {
-            this.groupname = groupname;
-        }
-    }
-
-    public static class LeaveGroupControlMessage {
-        String groupname;
-
-        public LeaveGroupControlMessage(String groupname) {
-            this.groupname = groupname;
-        }
-    }
-
-    public static class GroupSendFileControlMessage {
-        public final byte[] fileContant;
-        public final String groupname;
-
-        public GroupSendFileControlMessage(String groupname, byte[] fileContent) {
-            this.groupname = groupname;
-            this.fileContant = fileContent;
-        }
-    }
 }

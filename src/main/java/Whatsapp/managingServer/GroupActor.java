@@ -1,8 +1,8 @@
 package Whatsapp.managingServer;
 
+import Whatsapp.Messages.ChatActorMessages;
 import Whatsapp.chatUser.ChatActor;
 import akka.actor.AbstractActor;
-import akka.actor.ActorRef;
 import akka.actor.Props;
 import akka.event.Logging;
 import akka.event.LoggingAdapter;
@@ -10,10 +10,9 @@ import akka.routing.ActorRefRoutee;
 import akka.routing.BroadcastRoutingLogic;
 import akka.routing.Router;
 
-import java.io.Serializable;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import Whatsapp.Messages.GroupActorMessages.*;
 
 public class GroupActor extends AbstractActor {
     LoggingAdapter log = Logging.getLogger(getContext().getSystem(), this);
@@ -43,10 +42,66 @@ public class GroupActor extends AbstractActor {
     public Receive createReceive() {
         return receiveBuilder()
                 .match(GroupCreateMessage.class, this::createGroup)
-                .match(UserChatGroupTextMessage.class, msg -> router.route(msg, getSelf()))
-                .match(UserChatGroupFileMessage.class, msg -> router.route(msg, getSelf()))
+                .match(GroupInviteMessage.class, this::inviteUser)
+                .match(GroupAddCoAdmin.class, this::addCoAdmin)
+                .match(GroupRemoveCoAdmin.class, this::removeCoAdmin)
+                .match(ChatActorMessages.UserChatGroupTextMessage.class, msg -> router.route(msg, getSelf()))
+                .match(ChatActorMessages.UserChatGroupFileMessage.class, msg -> router.route(msg, getSelf()))
+                .match(ValidateGroupInviteMessage.class, this::validateInviteUser)
 //                .match(GroupLeaveMessage.class, msg -> leaveGroup(msg.username))
                 .build();
+    }
+
+    private boolean checkCoAdminPrivileges(String username) {
+        if (!adminUsername.equals(username) && !coAdmins.contains(username)) {
+            getSender().tell(new ChatActorMessages.ManagingMessage(String.format("You are neither admin nor co-admin of %s!", groupName)), getSelf());
+            return false;
+        }
+        return true;
+    }
+
+    private boolean checkUsernameExists(String username) {
+        if (!users.contains(username)) {
+            getSender().tell(new ChatActorMessages.ManagingMessage(String.format("%s does not exist!", username)), getSelf());
+            return false;
+        }
+        return true;
+    }
+
+    private void validateInviteUser(ValidateGroupInviteMessage msg) {
+        if (!checkCoAdminPrivileges(msg.username))
+            return;
+
+        if (users.contains(msg.targetUsername)) {
+            getSender().tell(new ChatActorMessages.ManagingMessage(String.format("%s is already in %s", msg.targetUsername, groupName)), getSelf());
+            return;
+        }
+
+        getSender().tell(msg, getSelf());
+    }
+
+    private void inviteUser(GroupInviteMessage msg) {
+        addUser(msg.targetUsername);
+
+        msg.targetUserActorRef.tell(new ChatActorMessages.ManagingMessage(String.format("Welcome to %s!", groupName)), getSelf());
+    }
+
+    private void removeCoAdmin(GroupRemoveCoAdmin msg) {
+        if (!checkUsernameExists(msg.targetUsername) || !checkCoAdminPrivileges(msg.username))
+            return;
+
+        coAdmins.remove(msg.targetUsername);
+
+        msg.targetUserActorRef.tell(new ChatActorMessages.ManagingMessage(String.format("You have been demoted to user in %s!", groupName)), getSelf());
+    }
+
+    private void addCoAdmin(GroupAddCoAdmin msg) {
+        if (!checkUsernameExists(msg.targetUsername) || !checkCoAdminPrivileges(msg.username))
+            return;
+
+        coAdmins.add(msg.targetUsername);
+
+        msg.targetUserActorRef.tell(new ChatActorMessages.ManagingMessage(String.format("You have been promoted to co-admin in %s!", groupName)), getSelf());
     }
 
     private void createGroup(GroupCreateMessage msg) {
@@ -58,97 +113,39 @@ public class GroupActor extends AbstractActor {
 
         addUser(msg.username);
         adminUsername = msg.username;
-        router = router.addRoutee(new ActorRefRoutee(getSender()));
 
-        router.route(new ChatActor.ManagingMessage(String.format("%s created successfully!", groupName)), getSelf());
+        router.route(new ChatActorMessages.ManagingMessage(String.format("%s created successfully!", groupName)), getSelf());
     }
 
     private void addUser(String username) {
         users.add(username);
+        router = router.addRoutee(new ActorRefRoutee(getSender()));
     }
 
 //    private void leaveGroup(String username) {
 //        if (adminUsername.equals(username) || coAdmins.containsKey(username) ||
 //                users.contains(username) || mutedUsers.containsKey(username)) {
-//            getSender().tell(new ChatActor.GroupLeaveSuccess(), getSelf());
+//            getSender().tell(new ChatActorMessages.GroupLeaveSuccess(), getSelf());
 //
 //            // Deletes if the user exists in one of this.
 //            coAdmins.remove(username);
 //            users.remove(username);
 //            mutedUsers.remove(username);
 //
-//            router.route(new ChatActor.UserLeftGroupMessage(String.format("%s has left %s!",
+//            router.route(new ChatActorMessages.UserLeftGroupMessage(String.format("%s has left %s!",
 //                    username, groupName)), getSelf());
 //
 //            if (admin.getKey().equals(username)) {
 //                // TODO: Remove all users. Is it really needed?
-//                router.route(new ChatActor.UserLeftGroupMessage(String.format("%s admin has closed %s!", groupName,
+//                router.route(new ChatActorMessages.UserLeftGroupMessage(String.format("%s admin has closed %s!", groupName,
 //                        groupName)), getSelf());
 //                getContext().parent().tell(new ManagingActor.GroupDeleteMessage(groupName), getSelf());
 //            }
 //        } else {
-//            getSender().tell(new ChatActor.GroupLeaveError(String.format("%s is not in %s!", username, groupName)),
+//            getSender().tell(new ChatActorMessages.GroupLeaveError(String.format("%s is not in %s!", username, groupName)),
 //                    getSelf());
 //        }
 //    }
 
-    public static class GroupLeaveMessage implements Serializable {
-        final String username;
-        final ActorRef sourcePath;
 
-        public GroupLeaveMessage(String username, ActorRef sourcePath) {
-            this.username = username;
-            this.sourcePath = sourcePath;
-        }
-    }
-
-    public static class GroupCreateMessage implements Serializable {
-        final String username;
-        final String groupname;
-
-        public GroupCreateMessage(String username, String groupname) {
-            this.username = username;
-            this.groupname = groupname;
-        }
-    }
-
-    public static class UserChatGroupTextMessage implements Serializable {
-
-        public final String username;
-        public final String groupName;
-        public final String msg;
-
-        public String getMessage() {
-            LocalDateTime now = LocalDateTime.now();
-            String time = String.format("%d:%d", now.getHour(), now.getMinute());
-            return String.format("[%s][%s][%s]%s", time, groupName, username, msg);
-        }
-
-        public UserChatGroupTextMessage(String username, String groupName, String msg) {
-            this.username = username;
-            this.groupName = groupName;
-            this.msg = msg;
-        }
-    }
-
-    public static class UserChatGroupFileMessage implements Serializable {
-        public final byte[] fileContent;
-        public final String groupName;
-        public final String username;
-        final static String message = "File received: %s";
-
-
-        public UserChatGroupFileMessage(String username, String groupname, byte[] fileContant) {
-            this.username = username;
-            this.groupName = groupname;
-            this.fileContent = fileContant;
-
-        }
-
-        public String getMessage() {
-            LocalDateTime now = LocalDateTime.now();
-            String time = String.format("%d:%d", now.getHour(), now.getMinute());
-            return String.format("[%s][%s][%s]%s", time, groupName, username, message);
-        }
-    }
 }

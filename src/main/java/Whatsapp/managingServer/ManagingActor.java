@@ -1,5 +1,7 @@
 package Whatsapp.managingServer;
 
+import Whatsapp.Messages.ChatActorMessages;
+import Whatsapp.Messages.GroupActorMessages;
 import Whatsapp.chatUser.ChatActor;
 import akka.actor.AbstractActor;
 import akka.actor.ActorRef;
@@ -10,8 +12,8 @@ import akka.event.LoggingAdapter;
 import com.typesafe.config.ConfigFactory;
 
 import java.io.IOException;
-import java.io.Serializable;
 import java.util.HashMap;
+import Whatsapp.Messages.ManagingActorMessages.*;
 
 
 public class ManagingActor extends AbstractActor {
@@ -51,16 +53,20 @@ public class ManagingActor extends AbstractActor {
                 .match(UserConnectMessage.class, this::connectRequest)
                 .match(FetchTargetUserRef.class, this::fetchTargetRequest)
                 .match(UserDisconnectMessage.class, this::disconnectRequest)
-                .match(GroupActor.GroupCreateMessage.class, this::groupCreateRequest)
+                .match(GroupActorMessages.GroupCreateMessage.class, this::groupCreateRequest)
+                .match(GroupActorMessages.GroupInviteMessage.class, msg -> groupForward(msg.groupName, msg))
+                .match(GroupActorMessages.GroupAddCoAdmin.class, msg -> groupForward(msg.groupName, msg))
+                .match(GroupActorMessages.GroupRemoveCoAdmin.class, msg -> groupForward(msg.groupName, msg))
                 .match(GroupDeleteMessage.class, this::deleteGroup)
-                .match(GroupActor.UserChatGroupTextMessage.class, msg -> groupForward(msg.groupName, msg))
-                .match(GroupActor.UserChatGroupFileMessage.class, msg -> groupForward(msg.groupName, msg))
+                .match(ChatActorMessages.UserChatGroupTextMessage.class, msg -> groupForward(msg.groupName, msg))
+                .match(ChatActorMessages.UserChatGroupFileMessage.class, msg -> groupForward(msg.groupName, msg))
+                .match(GroupActorMessages.ValidateGroupInviteMessage.class, msg -> groupForward(msg.groupName, msg))
                 .build();
     }
 
     private void groupForward(String groupName, Object msg) {
         if (!groups.containsKey(groupName)) {
-            getSender().tell(new ChatActor.ManagingMessage(String.format("%s does not exist!", groupName)), getSelf());
+            getSender().tell(new ChatActorMessages.ManagingMessage(String.format("%s does not exist!", groupName)), getSelf());
         } else {
             groups.get(groupName).forward(msg, getContext());
         }
@@ -71,9 +77,9 @@ public class ManagingActor extends AbstractActor {
         groups.remove(groupDeleteMessage.groupname);
     }
 
-    private void groupCreateRequest(GroupActor.GroupCreateMessage groupCreate) {
+    private void groupCreateRequest(GroupActorMessages.GroupCreateMessage groupCreate) {
         if (groups.containsKey(groupCreate.groupname)) {
-            getSender().tell(new ChatActor.GroupCreateFailure(
+            getSender().tell(new ChatActorMessages.GroupCreateFailure(
                     String.format("%s already exists!", groupCreate.groupname)), getSelf());
         } else {
             ActorRef groupActor = getContext().actorOf(GroupActor.props(groupCreate.groupname), groupCreate.groupname);
@@ -84,18 +90,18 @@ public class ManagingActor extends AbstractActor {
 
     private void connectRequest(UserConnectMessage connect) {
         if (users.containsKey(connect.username)) {
-            getSender().tell(new ChatActor.UserConnectFailure(
+            getSender().tell(new ChatActorMessages.UserConnectFailure(
                     String.format("%s is in use!", connect.username)), getSelf());
         } else {
             this.users.put(connect.username, connect.sourcePath);
-            getSender().tell(new ChatActor.UserConnectSuccess(
+            getSender().tell(new ChatActorMessages.UserConnectSuccess(
                     String.format("%s has connected successfully!", connect.username)), getSelf());
         }
     }
 
     private void disconnectRequest(UserDisconnectMessage disconnect) {
         this.users.remove(disconnect.username);
-        getSender().tell(new ChatActor.UserDisconnectSuccess(
+        getSender().tell(new ChatActorMessages.UserDisconnectSuccess(
                 String.format("%s has been disconnected successfully!", disconnect.username)), getSelf());
     }
 
@@ -107,39 +113,7 @@ public class ManagingActor extends AbstractActor {
         getSender().tell(target, getSelf());
     }
 
-    public static class UserConnectMessage implements Serializable {
-        final String username;
-        final ActorRef sourcePath;
 
-        public UserConnectMessage(String username, ActorRef sourcePath) {
-            this.username = username;
-            this.sourcePath = sourcePath;
-        }
-    }
-
-    public static class FetchTargetUserRef implements Serializable {
-        final String target;
-
-        public FetchTargetUserRef(String target) {
-            this.target = target;
-        }
-    }
-
-    public static class UserDisconnectMessage implements Serializable {
-        final String username;
-
-        public UserDisconnectMessage(String username) {
-            this.username = username;
-        }
-    }
-
-    public static class GroupDeleteMessage implements Serializable {
-        final String groupname;
-
-        public GroupDeleteMessage(String groupname) {
-            this.groupname = groupname;
-        }
-    }
 
 
 }
