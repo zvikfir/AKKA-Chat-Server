@@ -2,7 +2,6 @@ package Whatsapp.managingServer;
 
 import Whatsapp.Messages.ChatActorMessages;
 import Whatsapp.Messages.GroupActorMessages;
-import Whatsapp.chatUser.ChatActor;
 import akka.actor.AbstractActor;
 import akka.actor.ActorRef;
 import akka.actor.ActorSystem;
@@ -13,6 +12,7 @@ import com.typesafe.config.ConfigFactory;
 
 import java.io.IOException;
 import java.util.HashMap;
+
 import Whatsapp.Messages.ManagingActorMessages.*;
 
 
@@ -54,13 +54,17 @@ public class ManagingActor extends AbstractActor {
                 .match(FetchTargetUserRef.class, this::fetchTargetRequest)
                 .match(UserDisconnectMessage.class, this::disconnectRequest)
                 .match(GroupActorMessages.GroupCreateMessage.class, this::groupCreateRequest)
-                .match(GroupActorMessages.GroupInviteMessage.class, msg -> groupForward(msg.groupName, msg))
                 .match(GroupActorMessages.GroupAddCoAdmin.class, msg -> groupForward(msg.groupName, msg))
                 .match(GroupActorMessages.GroupRemoveCoAdmin.class, msg -> groupForward(msg.groupName, msg))
                 .match(GroupDeleteMessage.class, this::deleteGroup)
                 .match(ChatActorMessages.UserChatGroupTextMessage.class, msg -> groupForward(msg.groupName, msg))
                 .match(ChatActorMessages.UserChatGroupFileMessage.class, msg -> groupForward(msg.groupName, msg))
                 .match(GroupActorMessages.ValidateGroupInviteMessage.class, msg -> groupForward(msg.groupName, msg))
+                .match(ChatActorMessages.GroupInvitationAccepted.class, msg -> groupForward(msg.groupName, msg))
+                .match(GroupActorMessages.GroupLeaveMessage.class, msg -> groupForward(msg.groupName, msg))
+                .match(GroupActorMessages.GroupRemoveUserMessage.class, msg -> groupForward(msg.groupName, msg))
+                .match(GroupActorMessages.GroupUserMute.class, msg -> groupForward(msg.groupName, msg))
+                .match(GroupActorMessages.GroupUserUnmute.class, msg -> groupForward(msg.groupName, msg))
                 .build();
     }
 
@@ -73,8 +77,8 @@ public class ManagingActor extends AbstractActor {
     }
 
     private void deleteGroup(GroupDeleteMessage groupDeleteMessage) {
-        getContext().stop(groups.get(groupDeleteMessage.groupname));
-        groups.remove(groupDeleteMessage.groupname);
+        getContext().stop(groups.get(groupDeleteMessage.groupName));
+        groups.remove(groupDeleteMessage.groupName);
     }
 
     private void groupCreateRequest(GroupActorMessages.GroupCreateMessage groupCreate) {
@@ -103,6 +107,8 @@ public class ManagingActor extends AbstractActor {
         this.users.remove(disconnect.username);
         getSender().tell(new ChatActorMessages.UserDisconnectSuccess(
                 String.format("%s has been disconnected successfully!", disconnect.username)), getSelf());
+
+        groups.values().forEach(ref -> ref.forward(disconnect, getContext()));
     }
 
     private void fetchTargetRequest(FetchTargetUserRef fetchTarget) {
@@ -110,10 +116,8 @@ public class ManagingActor extends AbstractActor {
         if (users.containsKey(fetchTarget.target)) {
             target = users.get(fetchTarget.target);
         }
-        getSender().tell(target, getSelf());
+        getSender().tell(new FetchTargetUserRef(fetchTarget.target, target), getSelf());
     }
-
-
 
 
 }

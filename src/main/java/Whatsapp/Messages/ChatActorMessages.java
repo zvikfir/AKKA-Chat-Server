@@ -6,7 +6,7 @@ import java.time.LocalDateTime;
 public class ChatActorMessages {
 
     public static class UserConnectSuccess implements Serializable {
-        public String msg;
+        public final String msg;
 
         public UserConnectSuccess(String msg) {
             this.msg = msg;
@@ -14,7 +14,7 @@ public class ChatActorMessages {
     }
 
     public static class UserConnectFailure implements Serializable {
-        public String msg;
+        public final String msg;
 
         public UserConnectFailure(String msg) {
             this.msg = msg;
@@ -22,7 +22,7 @@ public class ChatActorMessages {
     }
 
     public static class UserDisconnectSuccess implements Serializable {
-        public String msg;
+        public final String msg;
 
         public UserDisconnectSuccess(String msg) {
             this.msg = msg;
@@ -30,8 +30,8 @@ public class ChatActorMessages {
     }
 
     public static class UserChatTextMessage implements Serializable {
-        public String source;
-        public String message;
+        public final String source;
+        public final String message;
 
         public UserChatTextMessage(String source, String message) {
             this.source = source;
@@ -47,8 +47,8 @@ public class ChatActorMessages {
 
     public static class UserChatFileMessage implements Serializable {
         public final static String message = "File received: %s";
-        public String source;
-        public byte[] file;
+        public final String source;
+        public final byte[] file;
 
         public UserChatFileMessage(String source, byte[] file) {
             this.source = source;
@@ -63,30 +63,29 @@ public class ChatActorMessages {
     }
 
     public static class GroupCreateFailure implements Serializable {
-        public String msg;
+        public final String msg;
 
         public GroupCreateFailure(String msg) {
             this.msg = msg;
         }
     }
 
-    public static class GroupLeaveError implements Serializable {
-        public String msg;
-
-        public GroupLeaveError(String msg) {
-            this.msg = msg;
-        }
-    }
-
     public static class ManagingMessage implements Serializable {
-        public String msg;
+        public final String msg;
 
         public ManagingMessage(String msg) {
             this.msg = msg;
         }
     }
 
-    public static class GroupInviteConfirmation implements Serializable {
+    public static class AskToJoinMessage implements Serializable {
+        public final String groupName;
+        public final String inviter;
+
+        public AskToJoinMessage(String groupName, String inviter) {
+            this.groupName = groupName;
+            this.inviter = inviter;
+        }
     }
 
     public static class UserChatGroupTextMessage implements Serializable {
@@ -129,5 +128,14 @@ public class ChatActorMessages {
         }
     }
 
+    public static class GroupInvitationAccepted implements Serializable {
+        public final String groupName;
+        public final String invited;
+
+        public GroupInvitationAccepted(String groupName, String invited) {
+            this.groupName = groupName;
+            this.invited = invited;
+        }
+    }
 
 }

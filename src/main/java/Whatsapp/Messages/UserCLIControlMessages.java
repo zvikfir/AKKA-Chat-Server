@@ -2,7 +2,7 @@ package Whatsapp.Messages;
 
 public class UserCLIControlMessages {
     public static class ConnectControlMessage {
-        public String username;
+        public final String username;
 
         public ConnectControlMessage(String username) {
             this.username = username;
@@ -23,7 +23,7 @@ public class UserCLIControlMessages {
     }
 
     public static class CreateGroupControlMessage {
-        public String groupname;
+        public final String groupname;
 
         public CreateGroupControlMessage(String groupname) {
             this.groupname = groupname;
@@ -31,7 +31,7 @@ public class UserCLIControlMessages {
     }
 
     public static class LeaveGroupControlMessage {
-        public String groupname;
+        public final String groupname;
 
         public LeaveGroupControlMessage(String groupname) {
             this.groupname = groupname;
@@ -49,8 +49,8 @@ public class UserCLIControlMessages {
     }
 
     public static class GroupAddCoAdminControlMessage {
-        public String groupName;
-        public String targetUsername;
+        public final String groupName;
+        public final String targetUsername;
 
         public GroupAddCoAdminControlMessage(String groupName, String targetUsername) {
             this.groupName = groupName;
@@ -59,8 +59,8 @@ public class UserCLIControlMessages {
     }
 
     public static class GroupRemoveCoAdminControlMessage {
-        public String groupName;
-        public String targetUsername;
+        public final String groupName;
+        public final String targetUsername;
 
         public GroupRemoveCoAdminControlMessage(String groupName, String targetUsername) {
             this.groupName = groupName;
@@ -69,8 +69,8 @@ public class UserCLIControlMessages {
     }
 
     public static class GroupInviteControlMessage {
-        public String groupName;
-        public String targetUsername;
+        public final String groupName;
+        public final String targetUsername;
 
         public GroupInviteControlMessage(String groupName, String targetUsername) {
             this.groupName = groupName;
@@ -79,8 +79,8 @@ public class UserCLIControlMessages {
     }
 
     public static class TextControlMessage {
-        public String target;
-        public String msg;
+        public final String target;
+        public final String msg;
 
         public TextControlMessage(String target, String msg) {
             this.target = target;
@@ -89,12 +89,51 @@ public class UserCLIControlMessages {
     }
 
     public static class FileControlMessage {
-        public String target;
-        public byte[] file;
+        public final String target;
+        public final byte[] file;
 
         public FileControlMessage(String target, byte[] file) {
             this.target = target;
             this.file = file;
         }
     }
+
+    public static class AcceptGroupInvitationControlMessage {
+
+    }
+
+    public static class DeclineGroupInvitationControlMessage {}
+
+    public static class RemoveUserControlMessage {
+        public final String groupName;
+        public final String targetUserName;
+
+        public RemoveUserControlMessage(String groupName, String targetUserName) {
+            this.groupName = groupName;
+            this.targetUserName = targetUserName;
+        }
+    }
+
+    public static class MuteUserControlMessage {
+        public final String groupName;
+        public final String targetUsername;
+        public final long timeInSeconds;
+
+        public MuteUserControlMessage(String groupName, String targetUsername, long timeInSeconds) {
+            this.groupName = groupName;
+            this.targetUsername = targetUsername;
+            this.timeInSeconds = timeInSeconds;
+        }
+    }
+
+    public static class UnmuteUserControlMessage {
+        public final String groupName;
+        public final String targetUsername;
+
+        public UnmuteUserControlMessage(String groupName, String targetUsername) {
+            this.groupName = groupName;
+            this.targetUsername = targetUsername;
+        }
+    }
+
 }

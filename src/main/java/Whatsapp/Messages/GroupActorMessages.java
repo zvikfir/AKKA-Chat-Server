@@ -6,12 +6,27 @@ import java.io.Serializable;
 
 public class GroupActorMessages {
     public static class GroupLeaveMessage implements Serializable {
-        final String username;
-        final ActorRef sourcePath;
+        public final String userName;
+        public final String groupName;
 
-        public GroupLeaveMessage(String username, ActorRef sourcePath) {
-            this.username = username;
-            this.sourcePath = sourcePath;
+        public GroupLeaveMessage(String userName, String groupName) {
+            this.userName = userName;
+            this.groupName = groupName;
+        }
+    }
+
+    public static class GroupRemoveUserMessage implements Serializable {
+        public final String sourceUserName;
+        public final String targetUserName;
+        public final ActorRef targetActorRef;
+        public final String groupName;
+
+        public GroupRemoveUserMessage(String sourceUserName, String targetUserName, ActorRef targetActorRef,
+                                      String groupName) {
+            this.sourceUserName = sourceUserName;
+            this.targetUserName = targetUserName;
+            this.targetActorRef = targetActorRef;
+            this.groupName = groupName;
         }
     }
 
@@ -25,25 +40,11 @@ public class GroupActorMessages {
         }
     }
 
-    public static class GroupInviteMessage implements Serializable {
-        public String groupName;
-        public String username;
-        public String targetUsername;
-        public ActorRef targetUserActorRef;
-
-        public GroupInviteMessage(String groupName, String username, String targetUsername, ActorRef targetUserActorRef) {
-            this.groupName = groupName;
-            this.username = username;
-            this.targetUsername = targetUsername;
-            this.targetUserActorRef = targetUserActorRef;
-        }
-    }
-
     public static class GroupAddCoAdmin implements Serializable {
-        public String groupName;
-        public String username;
-        public String targetUsername;
-        public ActorRef targetUserActorRef;
+        public final String groupName;
+        public final String username;
+        public final String targetUsername;
+        public final ActorRef targetUserActorRef;
 
         public GroupAddCoAdmin(String groupName, String username, String targetUsername, ActorRef targetUserActorRef) {
             this.groupName = groupName;
@@ -54,10 +55,10 @@ public class GroupActorMessages {
     }
 
     public static class GroupRemoveCoAdmin implements Serializable {
-        public String groupName;
-        public String username;
-        public String targetUsername;
-        public ActorRef targetUserActorRef;
+        public final String groupName;
+        public final String username;
+        public final String targetUsername;
+        public final ActorRef targetUserActorRef;
 
         public GroupRemoveCoAdmin(String groupName, String username, String targetUsername, ActorRef targetUserActorRef) {
             this.groupName = groupName;
@@ -76,6 +77,46 @@ public class GroupActorMessages {
             this.groupName = groupName;
             this.targetUsername = targetUsername;
             this.username = username;
+        }
+    }
+
+    public static class GroupUserMute implements Serializable {
+        public final String username;
+        public final String targetUsername;
+        public final ActorRef targetActorRef;
+        public final long timeInSeconds;
+        public final String groupName;
+
+        public GroupUserMute(String username, String targetUsername, ActorRef targetActorRef, long timeInSeconds, String groupName) {
+            this.username = username;
+            this.targetUsername = targetUsername;
+            this.targetActorRef = targetActorRef;
+            this.timeInSeconds = timeInSeconds;
+            this.groupName = groupName;
+        }
+    }
+
+    public static class GroupAutoUnmute implements Serializable {
+        public final String username;
+        public final ActorRef targetRef;
+
+        public GroupAutoUnmute(String username, ActorRef targetRef) {
+            this.username = username;
+            this.targetRef = targetRef;
+        }
+    }
+
+    public static class GroupUserUnmute implements Serializable {
+        public final String username;
+        public final String targetUsername;
+        public final ActorRef targetRef;
+        public final String groupName;
+
+        public GroupUserUnmute(String username, String targetUsername, ActorRef targetRef, String groupName) {
+            this.username = username;
+            this.targetUsername = targetUsername;
+            this.targetRef = targetRef;
+            this.groupName = groupName;
         }
     }
 }

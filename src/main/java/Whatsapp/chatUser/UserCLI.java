@@ -1,6 +1,6 @@
 package Whatsapp.chatUser;
 
-import Whatsapp.managingServer.GroupActor;
+import Whatsapp.Messages.UserCLIControlMessages.*;
 import akka.actor.ActorRef;
 import akka.actor.ActorSystem;
 import com.typesafe.config.ConfigFactory;
@@ -9,7 +9,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Scanner;
-import Whatsapp.Messages.UserCLIControlMessages.*;
 
 public class UserCLI {
     public static void cli(ActorRef user) {
@@ -25,6 +24,12 @@ public class UserCLI {
             if (input.startsWith("/group")) {
                 String[] cmd_parts = input.split("\\s+");
                 cli_group(user, cmd_parts);
+            }
+            if (input.matches("^(Yes|yes|Y|y)$")) {
+                user.tell(new AcceptGroupInvitationControlMessage(), ActorRef.noSender());
+            }
+            if(input.matches("^(No|no|N|n)$")) {
+                user.tell(new DeclineGroupInvitationControlMessage(), ActorRef.noSender());
             }
         } while (true);
     }
@@ -50,36 +55,39 @@ public class UserCLI {
             case "coadmin":
                 cli_group_coAdmin(user, cmd_parts);
                 break;
-            // /group user invite <group-name> <targetUsername>
-            // /group user remove <group-name> <targetUsername>
-            // /group user mute <group-name> <targetUsername> <time-in-seconds>
-            // /group user unmute <group-name> <targetUsername>
+
+
             case "user":
                 cli_group_user(user, cmd_parts);
                 break;
         }
 
 
-
-
     }
 
     private static void cli_group_user(ActorRef user, String[] cmd_parts) {
-        switch(cmd_parts[2]) {
+        switch (cmd_parts[2]) {
+            // /group user invite <group-name> <targetUsername>
             case "invite":
                 user.tell(new GroupInviteControlMessage(cmd_parts[3], cmd_parts[4]), ActorRef.noSender());
                 break;
+            // /group user remove <group-name> <targetUsername>
             case "remove":
+                user.tell(new RemoveUserControlMessage(cmd_parts[3], cmd_parts[4]), ActorRef.noSender());
                 break;
+            // /group user mute <group-name> <targetUsername> <time-in-seconds>
             case "mute":
+                user.tell(new MuteUserControlMessage(cmd_parts[3], cmd_parts[4], Long.parseLong(cmd_parts[5])), ActorRef.noSender());
                 break;
+            // /group user unmute <group-name> <targetUsername>
             case "unmute":
+                user.tell(new UnmuteUserControlMessage(cmd_parts[3], cmd_parts[4]), ActorRef.noSender());
                 break;
         }
     }
 
     private static void cli_group_coAdmin(ActorRef user, String[] cmd_parts) {
-        switch(cmd_parts[2]) {
+        switch (cmd_parts[2]) {
             case "add":
                 user.tell(new GroupAddCoAdminControlMessage(cmd_parts[3], cmd_parts[4]), ActorRef.noSender());
                 break;
@@ -92,7 +100,7 @@ public class UserCLI {
     private static void cli_user(ActorRef user, String[] cmd_parts) {
         String cmd = cmd_parts[1];
         switch (cmd) {
-            // /user connect <username>
+            // /user connect <inviter>
             case "connect":
                 user.tell(new ConnectControlMessage(cmd_parts[2]), ActorRef.noSender());
                 break;
@@ -157,7 +165,6 @@ public class UserCLI {
             system.terminate();
         }
     }
-
 
 
 }
