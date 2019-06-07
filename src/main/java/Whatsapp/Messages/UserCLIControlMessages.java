@@ -2,10 +2,10 @@ package Whatsapp.Messages;
 
 public class UserCLIControlMessages {
     public static class UserConnectControlMessage {
-        public final String username;
+        public final String userName;
 
-        public UserConnectControlMessage(String username) {
-            this.username = username;
+        public UserConnectControlMessage(String userName) {
+            this.userName = userName;
         }
     }
 
@@ -32,71 +32,69 @@ public class UserCLIControlMessages {
         }
     }
 
-    public static class GroupCoadminAddControlMessage {
+    public static class GroupCoAdminAddControlMessage {
         public final String groupName;
-        public final String targetUsername;
+        public final String targetUserName;
 
-        public GroupCoadminAddControlMessage(String groupName, String targetUsername) {
+        public GroupCoAdminAddControlMessage(String groupName, String targetUserName) {
             this.groupName = groupName;
-            this.targetUsername = targetUsername;
+            this.targetUserName = targetUserName;
         }
     }
 
-    public static class GroupCoadminRemoveControlMessage {
+    public static class GroupCoAdminRemoveControlMessage {
         public final String groupName;
-        public final String targetUsername;
+        public final String targetUserName;
 
-        public GroupCoadminRemoveControlMessage(String groupName, String targetUsername) {
+        public GroupCoAdminRemoveControlMessage(String groupName, String targetUserName) {
             this.groupName = groupName;
-            this.targetUsername = targetUsername;
+            this.targetUserName = targetUserName;
         }
     }
 
     public static class GroupCreateControlMessage {
-        public final String groupname;
+        public final String groupName;
 
-        public GroupCreateControlMessage(String groupname) {
-            this.groupname = groupname;
+        public GroupCreateControlMessage(String groupName) {
+            this.groupName = groupName;
         }
     }
 
     public static class GroupLeaveControlMessage {
-        public final String groupname;
+        public final String groupName;
 
-        public GroupLeaveControlMessage(String groupname) {
-            this.groupname = groupname;
+        public GroupLeaveControlMessage(String groupName) {
+            this.groupName = groupName;
         }
     }
 
     public static class GroupSendFileControlMessage {
-        public final byte[] fileContant;
-        public final String groupname;
+        public final byte[] fileContent;
+        public final String groupName;
 
-        public GroupSendFileControlMessage(String groupname, byte[] fileContent) {
-            this.groupname = groupname;
-            this.fileContant = fileContent;
+        public GroupSendFileControlMessage(String groupName, byte[] fileContent) {
+            this.groupName = groupName;
+            this.fileContent = fileContent;
         }
     }
 
     public static class GroupSendTextControlMessage {
         public final String groupName;
-
         public final String message;
 
         public GroupSendTextControlMessage(String groupName, String message) {
             this.groupName = groupName;
             this.message = message;
         }
-
     }
 
     public static class GroupUserInviteControlMessage {
         public final String groupName;
-        public final String targetUsername;
+        public final String targetUserName;
 
-        public GroupUserInviteControlMessage(String groupName, String targetUsername) {
+        public GroupUserInviteControlMessage(String groupName, String targetUserName) {
             this.groupName = groupName;
-            this.targetUsername = targetUsername;
+            this.targetUserName = targetUserName;
         }
     }
 
@@ -112,28 +110,27 @@ public class UserCLIControlMessages {
 
     public static class GroupUserMuteControlMessage {
         public final String groupName;
-        public final String targetUsername;
+        public final String targetUserName;
         public final long timeInSeconds;
 
-        public GroupUserMuteControlMessage(String groupName, String targetUsername, long timeInSeconds) {
+        public GroupUserMuteControlMessage(String groupName, String targetUserName, long timeInSeconds) {
             this.groupName = groupName;
-            this.targetUsername = targetUsername;
+            this.targetUserName = targetUserName;
             this.timeInSeconds = timeInSeconds;
         }
     }
 
     public static class GroupUserUnmuteControlMessage {
         public final String groupName;
-        public final String targetUsername;
+        public final String targetUserName;
 
-        public GroupUserUnmuteControlMessage(String groupName, String targetUsername) {
+        public GroupUserUnmuteControlMessage(String groupName, String targetUserName) {
             this.groupName = groupName;
-            this.targetUsername = targetUsername;
+            this.targetUserName = targetUserName;
         }
     }
 
     public static class GroupUserInviteAcceptControlMessage {
-
     }
 
     public static class GroupUserInviteDeclineControlMessage {

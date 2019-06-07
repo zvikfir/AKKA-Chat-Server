@@ -6,32 +6,32 @@ import java.io.Serializable;
 
 public class ManagingActorMessages {
     public static class UserConnectMessage implements Serializable {
-        public final String username;
+        public final String userName;
         public final ActorRef sourcePath;
 
-        public UserConnectMessage(String username, ActorRef sourcePath) {
-            this.username = username;
+        public UserConnectMessage(String userName, ActorRef sourcePath) {
+            this.userName = userName;
             this.sourcePath = sourcePath;
         }
     }
 
-    public static class FetchTargetUserRef implements Serializable {
-        public final String target;
-        public final ActorRef targetRef;
+    public static class UserDisconnectMessage implements Serializable {
+        public final String userName;
+        public final ActorRef userRef;
 
-        public FetchTargetUserRef(String target, ActorRef targetRef) {
-            this.target = target;
-            this.targetRef = targetRef;
+        public UserDisconnectMessage(String userName, ActorRef userRef) {
+            this.userName = userName;
+            this.userRef = userRef;
         }
     }
 
-    public static class UserDisconnectMessage implements Serializable {
-        public final String username;
-        public final ActorRef userRef;
+    public static class FetchTargetUserRefMessage implements Serializable {
+        public final String target;
+        public final ActorRef targetRef;
 
-        public UserDisconnectMessage(String username, ActorRef userRef) {
-            this.username = username;
-            this.userRef = userRef;
+        public FetchTargetUserRefMessage(String target, ActorRef targetRef) {
+            this.target = target;
+            this.targetRef = targetRef;
         }
     }
 

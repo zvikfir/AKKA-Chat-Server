@@ -11,6 +11,7 @@ import org.jline.reader.Completer;
 import org.jline.reader.LineReader;
 import org.jline.reader.LineReaderBuilder;
 import org.jline.reader.ParsedLine;
+import org.jline.reader.impl.DefaultParser;
 import org.jline.terminal.Terminal;
 import org.jline.terminal.TerminalBuilder;
 import org.jline.utils.InfoCmp;
@@ -80,8 +81,11 @@ public class UserCLI {
         final ActorRef user = system.actorOf(ChatActor.props(), "user");
 
         Terminal terminal = TerminalBuilder.builder().build();
+        DefaultParser parser = new DefaultParser();
+        parser.setEscapeChars(null);
         LineReader reader = LineReaderBuilder.builder()
                 .terminal(terminal)
+                .parser(parser)
                 .completer(getCompleter())
                 .build();
 
@@ -139,12 +143,12 @@ public class UserCLI {
                             switch (pl.words().get(2)) {
                                 // /group coadmin add <groupname> <targetusername>
                                 case "add":
-                                    user.tell(new GroupCoadminAddControlMessage(pl.words().get(3), pl.words().get(4))
+                                    user.tell(new GroupCoAdminAddControlMessage(pl.words().get(3), pl.words().get(4))
                                             , ActorRef.noSender());
                                     break;
                                 // /group coadmin remove <groupname> <targetusername>
                                 case "remove":
-                                    user.tell(new GroupCoadminRemoveControlMessage(pl.words().get(3),
+                                    user.tell(new GroupCoAdminRemoveControlMessage(pl.words().get(3),
                                             pl.words().get(4)), ActorRef.noSender());
                                     break;
                             }

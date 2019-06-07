@@ -4,53 +4,20 @@ import java.io.Serializable;
 import java.time.LocalDateTime;
 
 public class ChatActorMessages {
-
-    public static class UserConnectSuccess implements Serializable {
+    public static class ManagingMessage implements Serializable {
         public final String msg;
 
-        public UserConnectSuccess(String msg) {
+        public ManagingMessage(String msg) {
             this.msg = msg;
         }
     }
 
-    public static class UserConnectFailure implements Serializable {
-        public final String msg;
-
-        public UserConnectFailure(String msg) {
-            this.msg = msg;
-        }
-    }
-
-    public static class UserDisconnectSuccess implements Serializable {
-        public final String msg;
-
-        public UserDisconnectSuccess(String msg) {
-            this.msg = msg;
-        }
-    }
-
-    public static class UserChatTextMessage implements Serializable {
-        public final String source;
-        public final String message;
-
-        public UserChatTextMessage(String source, String message) {
-            this.source = source;
-            this.message = message;
-        }
-
-        public String getMessage() {
-            LocalDateTime now = LocalDateTime.now();
-            String time = String.format("%d:%d", now.getHour(), now.getMinute());
-            return String.format("[%s][user][%s]%s", time, source, message);
-        }
-    }
-
-    public static class UserChatFileMessage implements Serializable {
+    public static class FileMessage implements Serializable {
         public final static String message = "File received: %s";
         public final String source;
         public final byte[] file;
 
-        public UserChatFileMessage(String source, byte[] file) {
+        public FileMessage(String source, byte[] file) {
             this.source = source;
             this.file = file;
         }
@@ -62,80 +29,79 @@ public class ChatActorMessages {
         }
     }
 
-    public static class GroupCreateFailure implements Serializable {
-        public final String msg;
+    public static class TextMessage implements Serializable {
+        public final String source;
+        public final String message;
 
-        public GroupCreateFailure(String msg) {
-            this.msg = msg;
+        public TextMessage(String source, String message) {
+            this.source = source;
+            this.message = message;
+        }
+
+        public String getMessage() {
+            LocalDateTime now = LocalDateTime.now();
+            String time = String.format("%d:%d", now.getHour(), now.getMinute());
+            return String.format("[%s][user][%s]%s", time, source, message);
         }
     }
 
-    public static class ManagingMessage implements Serializable {
+    public static class GroupTextMessage implements Serializable {
+
+        public final String userName;
+        public final String groupName;
         public final String msg;
 
-        public ManagingMessage(String msg) {
+        public GroupTextMessage(String userName, String groupName, String msg) {
+            this.userName = userName;
+            this.groupName = groupName;
             this.msg = msg;
+        }
+
+        public String getMessage() {
+            LocalDateTime now = LocalDateTime.now();
+            String time = String.format("%d:%d", now.getHour(), now.getMinute());
+            return String.format("[%s][%s][%s]%s", time, groupName, userName, msg);
         }
     }
 
-    public static class AskToJoinMessage implements Serializable {
+    public static class GroupFileMessage implements Serializable {
+        final static String message = "File received: %s";
+        public final byte[] fileContent;
+        public final String groupName;
+        public final String userName;
+
+
+        public GroupFileMessage(String userName, String groupName, byte[] fileContent) {
+            this.userName = userName;
+            this.groupName = groupName;
+            this.fileContent = fileContent;
+
+        }
+
+        public String getMessage() {
+            LocalDateTime now = LocalDateTime.now();
+            String time = String.format("%d:%d", now.getHour(), now.getMinute());
+            return String.format("[%s][%s][%s]%s", time, groupName, userName, message);
+        }
+    }
+
+    public static class JoinGroupRequestMessage implements Serializable {
         public final String groupName;
         public final String inviter;
 
-        public AskToJoinMessage(String groupName, String inviter) {
+        public JoinGroupRequestMessage(String groupName, String inviter) {
             this.groupName = groupName;
             this.inviter = inviter;
         }
     }
 
-    public static class UserChatGroupTextMessage implements Serializable {
-
-        public final String username;
-        public final String groupName;
-        public final String msg;
-
-        public UserChatGroupTextMessage(String username, String groupName, String msg) {
-            this.username = username;
-            this.groupName = groupName;
-            this.msg = msg;
-        }
-
-        public String getMessage() {
-            LocalDateTime now = LocalDateTime.now();
-            String time = String.format("%d:%d", now.getHour(), now.getMinute());
-            return String.format("[%s][%s][%s]%s", time, groupName, username, msg);
-        }
-    }
-
-    public static class UserChatGroupFileMessage implements Serializable {
-        final static String message = "File received: %s";
-        public final byte[] fileContent;
-        public final String groupName;
-        public final String username;
-
-
-        public UserChatGroupFileMessage(String username, String groupname, byte[] fileContant) {
-            this.username = username;
-            this.groupName = groupname;
-            this.fileContent = fileContant;
-
-        }
-
-        public String getMessage() {
-            LocalDateTime now = LocalDateTime.now();
-            String time = String.format("%d:%d", now.getHour(), now.getMinute());
-            return String.format("[%s][%s][%s]%s", time, groupName, username, message);
-        }
-    }
-
-    public static class GroupInvitationAccepted implements Serializable {
+    public static class JoinGroupAcceptMessage implements Serializable {
         public final String groupName;
         public final String invited;
 
-        public GroupInvitationAccepted(String groupName, String invited) {
+        public JoinGroupAcceptMessage(String groupName, String invited) {
             this.groupName = groupName;
             this.invited = invited;
         }
     }
-
 }
