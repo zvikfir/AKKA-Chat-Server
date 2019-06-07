@@ -7,6 +7,7 @@
 
     <properties>
         <akka.version>2.6.0-M2</akka.version>
+        <jline.version>3.11.0</jline.version>
     </properties>
 
     <dependencies>
@@ -31,6 +32,11 @@
             <groupId>com.typesafe.akka</groupId>
             <artifactId>akka-remote_2.12</artifactId>
             <version>${akka.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.jline</groupId>
+            <artifactId>jline</artifactId>
+            <version>${jline.version}</version>
         </dependency>
     </dependencies>
     <build>

@@ -2,6 +2,10 @@ package Whatsapp.managingServer;
 
 import Whatsapp.Messages.ChatActorMessages;
 import Whatsapp.Messages.GroupActorMessages;
+import Whatsapp.Messages.ManagingActorMessages.FetchTargetUserRef;
+import Whatsapp.Messages.ManagingActorMessages.GroupDeleteMessage;
+import Whatsapp.Messages.ManagingActorMessages.UserConnectMessage;
+import Whatsapp.Messages.ManagingActorMessages.UserDisconnectMessage;
 import akka.actor.AbstractActor;
 import akka.actor.ActorRef;
 import akka.actor.ActorSystem;
@@ -12,8 +16,6 @@ import com.typesafe.config.ConfigFactory;
 
 import java.io.IOException;
 import java.util.HashMap;
-
-import Whatsapp.Messages.ManagingActorMessages.*;
 
 
 public class ManagingActor extends AbstractActor {
@@ -70,7 +72,8 @@ public class ManagingActor extends AbstractActor {
 
     private void groupForward(String groupName, Object msg) {
         if (!groups.containsKey(groupName)) {
-            getSender().tell(new ChatActorMessages.ManagingMessage(String.format("%s does not exist!", groupName)), getSelf());
+            getSender().tell(new ChatActorMessages.ManagingMessage(String.format("%s does not exist!", groupName)),
+                    getSelf());
         } else {
             groups.get(groupName).forward(msg, getContext());
         }

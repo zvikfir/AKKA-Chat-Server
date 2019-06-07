@@ -60,7 +60,8 @@ public class GroupActorMessages {
         public final String targetUsername;
         public final ActorRef targetUserActorRef;
 
-        public GroupRemoveCoAdmin(String groupName, String username, String targetUsername, ActorRef targetUserActorRef) {
+        public GroupRemoveCoAdmin(String groupName, String username, String targetUsername,
+                                  ActorRef targetUserActorRef) {
             this.groupName = groupName;
             this.username = username;
             this.targetUsername = targetUsername;
@@ -87,7 +88,8 @@ public class GroupActorMessages {
         public final long timeInSeconds;
         public final String groupName;
 
-        public GroupUserMute(String username, String targetUsername, ActorRef targetActorRef, long timeInSeconds, String groupName) {
+        public GroupUserMute(String username, String targetUsername, ActorRef targetActorRef, long timeInSeconds,
+                             String groupName) {
             this.username = username;
             this.targetUsername = targetUsername;
             this.targetActorRef = targetActorRef;

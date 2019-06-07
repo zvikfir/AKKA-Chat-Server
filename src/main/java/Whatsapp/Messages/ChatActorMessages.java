@@ -94,24 +94,24 @@ public class ChatActorMessages {
         public final String groupName;
         public final String msg;
 
-        public String getMessage() {
-            LocalDateTime now = LocalDateTime.now();
-            String time = String.format("%d:%d", now.getHour(), now.getMinute());
-            return String.format("[%s][%s][%s]%s", time, groupName, username, msg);
-        }
-
         public UserChatGroupTextMessage(String username, String groupName, String msg) {
             this.username = username;
             this.groupName = groupName;
             this.msg = msg;
         }
+
+        public String getMessage() {
+            LocalDateTime now = LocalDateTime.now();
+            String time = String.format("%d:%d", now.getHour(), now.getMinute());
+            return String.format("[%s][%s][%s]%s", time, groupName, username, msg);
+        }
     }
 
     public static class UserChatGroupFileMessage implements Serializable {
+        final static String message = "File received: %s";
         public final byte[] fileContent;
         public final String groupName;
         public final String username;
-        final static String message = "File received: %s";
 
 
         public UserChatGroupFileMessage(String username, String groupname, byte[] fileContant) {
