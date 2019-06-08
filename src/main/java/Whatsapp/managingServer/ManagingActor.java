@@ -49,13 +49,47 @@ public class ManagingActor extends AbstractActor {
     @Override
     public Receive createReceive() {
         return receiveBuilder()
-                .match(UserConnectMessage.class, this::connectRequest)
-                .match(FetchTargetUserRefMessage.class, this::fetchTargetRequest)
-                .match(UserDisconnectMessage.class, this::disconnectRequest)
-                .match(GroupActorMessages.CreateGroupMessage.class, this::groupCreateRequest)
+                .match(UserConnectMessage.class, connect -> {
+                    if (users.containsKey(connect.userName))
+                        getSender().tell(new ChatActorMessages.ManagingMessage(String.format("%s is in use!",
+                                connect.userName)), getSelf());
+                    else {
+                        this.users.put(connect.userName, connect.sourcePath);
+                        getSender().tell(new ChatActorMessages.ManagingMessage(String.format("%s has connected " +
+                                "successfully!", connect.userName)), getSelf());
+                    }
+                })
+                .match(FetchTargetUserRefMessage.class, fetchTarget -> {
+                    ActorRef target = null;
+                    if (users.containsKey(fetchTarget.target)) {
+                        target = users.get(fetchTarget.target);
+                    }
+                    getSender().tell(new FetchTargetUserRefMessage(fetchTarget.target, target), getSelf());
+                })
+                .match(UserDisconnectMessage.class, disconnect -> {
+                    this.users.remove(disconnect.userName);
+                    getSender().tell(new ChatActorMessages.ManagingMessage(String.format("%s has been disconnected " +
+                            "successfully!", disconnect.userName)), getSelf());
+
+                    groups.values().forEach(ref -> ref.forward(disconnect, getContext()));
+                })
+                .match(GroupActorMessages.CreateGroupMessage.class, groupCreate -> {
+                    if (groups.containsKey(groupCreate.groupName)) {
+                        getSender().tell(new ChatActorMessages.ManagingMessage(String.format("%s already exists!",
+                                groupCreate.groupName)), getSelf());
+                    } else {
+                        ActorRef groupActor = getContext().actorOf(GroupActor.props(groupCreate.groupName),
+                                groupCreate.groupName);
+                        this.groups.put(groupCreate.groupName, groupActor);
+                        groupActor.forward(groupCreate, getContext());
+                    }
+                })
                 .match(GroupActorMessages.AddCoAdminMessage.class, msg -> groupForward(msg.groupName, msg))
                 .match(GroupActorMessages.RemoveCoAdminMessage.class, msg -> groupForward(msg.groupName, msg))
-                .match(GroupDeleteMessage.class, this::deleteGroup)
+                .match(GroupDeleteMessage.class, groupDeleteMessage -> {
+                    getContext().stop(groups.get(groupDeleteMessage.groupName));
+                    groups.remove(groupDeleteMessage.groupName);
+                })
                 .match(ChatActorMessages.GroupTextMessage.class, msg -> groupForward(msg.groupName, msg))
                 .match(ChatActorMessages.GroupFileMessage.class, msg -> groupForward(msg.groupName, msg))
                 .match(GroupActorMessages.ValidateInviteMessage.class, msg -> groupForward(msg.groupName, msg))
@@ -75,49 +109,4 @@ public class ManagingActor extends AbstractActor {
             groups.get(groupName).forward(msg, getContext());
         }
     }
-
-    private void deleteGroup(GroupDeleteMessage groupDeleteMessage) {
-        getContext().stop(groups.get(groupDeleteMessage.groupName));
-        groups.remove(groupDeleteMessage.groupName);
-    }
-
-    private void groupCreateRequest(GroupActorMessages.CreateGroupMessage groupCreate) {
-        if (groups.containsKey(groupCreate.groupName)) {
-            getSender().tell(new ChatActorMessages.ManagingMessage(String.format("%s already exists!",
-                    groupCreate.groupName)), getSelf());
-        } else {
-            ActorRef groupActor = getContext().actorOf(GroupActor.props(groupCreate.groupName), groupCreate.groupName);
-            this.groups.put(groupCreate.groupName, groupActor);
-            groupActor.forward(groupCreate, getContext());
-        }
-    }
-
-    private void connectRequest(UserConnectMessage connect) {
-        if (users.containsKey(connect.userName)) {
-            getSender().tell(new ChatActorMessages.ManagingMessage(
-                    String.format("%s is in use!", connect.userName)), getSelf());
-        } else {
-            this.users.put(connect.userName, connect.sourcePath);
-            getSender().tell(new ChatActorMessages.ManagingMessage(
-                    String.format("%s has connected successfully!", connect.userName)), getSelf());
-        }
-    }
-
-    private void disconnectRequest(UserDisconnectMessage disconnect) {
-        this.users.remove(disconnect.userName);
-        getSender().tell(new ChatActorMessages.ManagingMessage(
-                String.format("%s has been disconnected successfully!", disconnect.userName)), getSelf());
-
-        groups.values().forEach(ref -> ref.forward(disconnect, getContext()));
-    }
-
-    private void fetchTargetRequest(FetchTargetUserRefMessage fetchTarget) {
-        ActorRef target = null;
-        if (users.containsKey(fetchTarget.target)) {
-            target = users.get(fetchTarget.target);
-        }
-        getSender().tell(new FetchTargetUserRefMessage(fetchTarget.target, target), getSelf());
-    }
-
-
 }

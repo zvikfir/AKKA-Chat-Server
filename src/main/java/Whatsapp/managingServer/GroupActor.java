@@ -45,12 +45,58 @@ public class GroupActor extends AbstractActor {
     @Override
     public Receive createReceive() {
         return receiveBuilder()
-                .match(CreateGroupMessage.class, this::createGroup)
-                .match(AddCoAdminMessage.class, this::addCoAdmin)
-                .match(RemoveCoAdminMessage.class, this::removeCoAdmin)
+                .match(CreateGroupMessage.class, msg -> {
+                    if (adminUserName != null)
+                        return;
+
+                    this.groupName = msg.groupName;
+                    addUser(msg.userName);
+                    adminUserName = msg.userName;
+                    router.route(new ChatActorMessages.ManagingMessage(String.format("%s created successfully!",
+                            groupName)), getSelf());
+                })
+                .match(AddCoAdminMessage.class, msg -> {
+                    if (!users.contains(msg.targetUserName)) {
+                        getSender().tell(new ChatActorMessages.ManagingMessage(String.format("%s does not exist!",
+                                msg.targetUserName)), getSelf());
+                        return;
+                    }
+                    if (checkCoAdminPrivileges(msg.userName))
+                        return;
+
+                    coAdmins.add(msg.targetUserName);
+
+                    msg.targetUserActorRef.tell(new ChatActorMessages.ManagingMessage(String.format("You have been " +
+                            "promoted to co-admin in %s!", groupName)), getSelf());
+                })
+                .match(RemoveCoAdminMessage.class, msg -> {
+                    if (!users.contains(msg.targetUserName)) {
+                        getSender().tell(new ChatActorMessages.ManagingMessage(String.format("%s does not exist!",
+                                msg.targetUserName)), getSelf());
+                        return;
+                    }
+                    if (checkCoAdminPrivileges(msg.userName))
+                        return;
+
+                    coAdmins.remove(msg.targetUserName);
+
+                    msg.targetUserActorRef.tell(new ChatActorMessages.ManagingMessage(String.format("You have been " +
+                            "demoted to user in %s!", groupName)), getSelf());
+                })
                 .match(ChatActorMessages.GroupTextMessage.class, msg -> sendMsgToGroup(msg.userName, msg))
                 .match(ChatActorMessages.GroupFileMessage.class, msg -> sendMsgToGroup(msg.userName, msg))
-                .match(ValidateInviteMessage.class, this::validateInviteUser)
+                .match(ValidateInviteMessage.class, msg -> {
+                    if (checkCoAdminPrivileges(msg.userName))
+                        return;
+
+                    if (users.contains(msg.targetUserName)) {
+                        getSender().tell(new ChatActorMessages.ManagingMessage(String.format("%s is already in %s!",
+                                msg.targetUserName, groupName)), getSelf());
+                        return;
+                    }
+
+                    getSender().tell(msg, getSelf());
+                })
                 .match(ChatActorMessages.JoinGroupAcceptMessage.class, msg -> addUser(msg.invited))
                 .match(LeaveGroupMessage.class, msg -> {
                     if (!users.contains(msg.userName)) {
@@ -62,8 +108,45 @@ public class GroupActor extends AbstractActor {
                     router.route(new ChatActorMessages.ManagingMessage(String.format("%s has left %s!", msg.userName,
                             groupName)), getSelf());
                 })
-                .match(RemoveUserMessage.class, this::removeUser)
-                .match(MuteUserMessage.class, this::muteUser)
+                .match(RemoveUserMessage.class, msg -> {
+                    if (checkCoAdminPrivileges(msg.sourceUserName))
+                        return;
+                    if (!users.contains(msg.targetUserName)) {
+                        getSender().tell(new ChatActorMessages.ManagingMessage(String.format("%s is not in %s!",
+                                msg.targetUserName, groupName)), getSelf());
+                        return;
+                    }
+
+                    deleteUser(msg.targetUserName, msg.targetActorRef);
+
+                    msg.targetActorRef.tell(new ChatActorMessages.ManagingMessage(String.format("You have been " +
+                            "removed from %s by %s!", groupName, msg.sourceUserName)), getSelf());
+                })
+                .match(MuteUserMessage.class, msg -> {
+                    if (checkCoAdminPrivileges(msg.userName))
+                        return;
+
+                    if (!users.contains(msg.targetUserName)) {
+                        getSender().tell(new ChatActorMessages.ManagingMessage(String.format("%s is not in %s",
+                                msg.targetUserName, groupName)), getSelf());
+                        return;
+                    }
+
+                    if (mutedUsers.containsKey(msg.targetUserName)) {
+                        getSender().tell(new ChatActorMessages.ManagingMessage(String.format("%s is already muted in " +
+                                "%s", msg.targetUserName, groupName)), getSelf());
+                        return;
+                    }
+
+                    mutedUsers.put(msg.targetUserName, msg.timeInSeconds);
+
+                    getContext().getSystem().scheduler().scheduleOnce(Duration.ofSeconds(msg.timeInSeconds),
+                            getSelf(), new AutoUnmuteMessage(msg.targetUserName, msg.targetActorRef),
+                            getContext().getSystem().dispatcher(), ActorRef.noSender());
+
+                    msg.targetActorRef.tell(new ChatActorMessages.ManagingMessage(String.format("You have been muted " +
+                            "for %d in %s by %s!", msg.timeInSeconds, groupName, msg.userName)), getSelf());
+                })
                 .match(AutoUnmuteMessage.class, msg -> {
                     if (!mutedUsers.containsKey(msg.userName))
                         return;
@@ -81,44 +164,14 @@ public class GroupActor extends AbstractActor {
                     }
 
                     mutedUsers.remove(msg.targetUserName);
-                    msg.targetRef.tell(new ChatActorMessages.ManagingMessage(String.format("You have been unmuted" +
-                            " in %s by %s!", groupName, msg.userName)), getSelf());
+                    msg.targetRef.tell(new ChatActorMessages.ManagingMessage(String.format("You have been unmuted in " +
+                            "%s by %s!", groupName, msg.userName)), getSelf());
                 })
                 .match(ManagingActorMessages.UserDisconnectMessage.class, msg -> {
                     log.info(String.format("deleting user %s", msg.userName));
                     deleteUser(msg.userName, msg.userRef);
                 })
                 .build();
-    }
-
-    private void muteUser(MuteUserMessage msg) {
-        if (checkCoAdminPrivileges(msg.userName))
-            return;
-
-        if (!users.contains(msg.targetUserName)) {
-            getSender().tell(new ChatActorMessages.ManagingMessage(String.format("%s is not in %s",
-                    msg.targetUserName, groupName)), getSelf());
-            return;
-        }
-
-        if (mutedUsers.containsKey(msg.targetUserName)) {
-            getSender().tell(new ChatActorMessages.ManagingMessage(String.format("%s is already muted in %s",
-                    msg.targetUserName, groupName)), getSelf());
-            return;
-        }
-
-        mutedUsers.put(msg.targetUserName, msg.timeInSeconds);
-
-        getContext().getSystem().
-                scheduler().scheduleOnce(Duration.ofSeconds(msg.timeInSeconds),
-                getSelf(),
-                new AutoUnmuteMessage(msg.targetUserName, msg.targetActorRef),
-                getContext().getSystem().dispatcher(),
-                ActorRef.noSender());
-
-        msg.targetActorRef.tell(new ChatActorMessages.ManagingMessage(String.format("You have been muted for %d in %s" +
-                " by %s!", msg.timeInSeconds, groupName, msg.userName)), getSelf());
-
     }
 
     private void sendMsgToGroup(String userName, Object msg) {
@@ -144,60 +197,6 @@ public class GroupActor extends AbstractActor {
         return false;
     }
 
-    private void validateInviteUser(ValidateInviteMessage msg) {
-        if (checkCoAdminPrivileges(msg.userName))
-            return;
-
-        if (users.contains(msg.targetUserName)) {
-            getSender().tell(new ChatActorMessages.ManagingMessage(String.format("%s is already in %s!",
-                    msg.targetUserName, groupName)), getSelf());
-            return;
-        }
-
-        getSender().tell(msg, getSelf());
-    }
-
-    private void removeCoAdmin(RemoveCoAdminMessage msg) {
-        if (!users.contains(msg.targetUserName)) {
-            getSender().tell(new ChatActorMessages.ManagingMessage(String.format("%s does not exist!",
-                    msg.targetUserName)), getSelf());
-            return;
-        }
-        if (checkCoAdminPrivileges(msg.userName))
-            return;
-
-        coAdmins.remove(msg.targetUserName);
-
-        msg.targetUserActorRef.tell(new ChatActorMessages.ManagingMessage(String.format("You have been demoted to " +
-                "user in %s!", groupName)), getSelf());
-    }
-
-    private void addCoAdmin(AddCoAdminMessage msg) {
-        if (!users.contains(msg.targetUserName)) {
-            getSender().tell(new ChatActorMessages.ManagingMessage(String.format("%s does not exist!",
-                    msg.targetUserName)), getSelf());
-            return;
-        }
-        if (checkCoAdminPrivileges(msg.userName))
-            return;
-
-        coAdmins.add(msg.targetUserName);
-
-        msg.targetUserActorRef.tell(new ChatActorMessages.ManagingMessage(String.format("You have been promoted to " +
-                "co-admin in %s!", groupName)), getSelf());
-    }
-
-    private void createGroup(CreateGroupMessage msg) {
-        if (adminUserName != null)
-            return;
-
-        this.groupName = msg.groupName;
-        addUser(msg.userName);
-        adminUserName = msg.userName;
-        router.route(new ChatActorMessages.ManagingMessage(String.format("%s created successfully!", groupName)),
-                getSelf());
-    }
-
     private void addUser(String userName) {
         users.add(userName);
         router = router.addRoutee(new ActorRefRoutee(getSender()));
@@ -216,20 +215,5 @@ public class GroupActor extends AbstractActor {
         coAdmins.remove(userName);
         users.remove(userName);
         mutedUsers.remove(userName);
-    }
-
-    private void removeUser(RemoveUserMessage msg) {
-        if (checkCoAdminPrivileges(msg.sourceUserName))
-            return;
-        if (!users.contains(msg.targetUserName)) {
-            getSender().tell(new ChatActorMessages.ManagingMessage(String.format("%s is not in %s!",
-                    msg.targetUserName, groupName)), getSelf());
-            return;
-        }
-
-        deleteUser(msg.targetUserName, msg.targetActorRef);
-
-        msg.targetActorRef.tell(new ChatActorMessages.ManagingMessage(String.format("You have been removed from %s by" +
-                " %s!", groupName, msg.sourceUserName)), getSelf());
     }
 }
