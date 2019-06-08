@@ -80,6 +80,8 @@ public class UserCLI {
         final ActorSystem system = ActorSystem.create("chatUser", ConfigFactory.load("chatUser"));
         final ActorRef user = system.actorOf(ChatActor.props(), "user");
 
+        System.setProperty("org.jline.terminal.dumb", "true");
+
         Terminal terminal = TerminalBuilder.builder().build();
         DefaultParser parser = new DefaultParser();
         parser.setEscapeChars(null);

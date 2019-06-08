@@ -76,6 +76,11 @@ public class ChatActor extends AbstractActor {
     }
 
     private void connect(String userName) {
+        if(this.userName != null) {
+            log.error(String.format("Already connected as %s!", this.userName));
+            return;
+        }
+
         Future<Object> rt = Patterns.ask(managingServer, new ManagingActorMessages.UserConnectMessage(userName,
                 getSelf()), timeout);
         try {
@@ -90,11 +95,16 @@ public class ChatActor extends AbstractActor {
     }
 
     private void disconnect() {
+        if(this.userName == null) {
+            log.error("You are not connected to the server!");
+            return;
+        }
         Future<Object> rt = Patterns.ask(managingServer, new ManagingActorMessages.UserDisconnectMessage(userName,
                 getSelf()), timeout);
         try {
             Object result = Await.result(rt, timeout.duration());
             log.info(((ManagingMessage) result).msg);
+            this.userName = null;
         } catch (Exception e) {
             log.info("server is offline!");
         }
