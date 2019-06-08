@@ -178,14 +178,14 @@ public class ChatActor extends AbstractActor {
 
                     targetUserNameActorRef.tell(new JoinGroupRequestMessage(msg.groupName, userName), getSelf());
                 })
-                .match(JoinGroupRequestMessage.class, msg2 -> {
+                .match(JoinGroupRequestMessage.class, msg -> {
                     if (groupsInvitations.empty())
-                        printGroupInvitation(msg2);
-                    groupsInvitations.push(msg2);
+                        printGroupInvitation(msg);
+                    groupsInvitations.push(msg);
                 })
-                .match(JoinGroupAcceptMessage.class, msg1 -> {
-                    managingServer.forward(msg1, getContext());
-                    getSender().tell(new ManagingMessage(String.format("Welcome to %s!", msg1.groupName)), getSelf());
+                .match(JoinGroupAcceptMessage.class, msg -> {
+                    managingServer.forward(msg, getContext());
+                    getSender().tell(new ManagingMessage(String.format("Welcome to %s!", msg.groupName)), getSelf());
                 })
                 .build();
     }
