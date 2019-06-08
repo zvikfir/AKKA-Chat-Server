@@ -6,8 +6,6 @@ import Whatsapp.Messages.ManagingActorMessages;
 import akka.actor.AbstractActor;
 import akka.actor.ActorRef;
 import akka.actor.Props;
-import akka.event.Logging;
-import akka.event.LoggingAdapter;
 import akka.routing.ActorRefRoutee;
 import akka.routing.BroadcastRoutingLogic;
 import akka.routing.Router;
@@ -19,7 +17,6 @@ import java.util.List;
 import java.util.Map;
 
 public class GroupActor extends AbstractActor {
-    final LoggingAdapter log = Logging.getLogger(getContext().getSystem(), this);
     private Router router;
     private String adminUserName;
     private List<String> coAdmins;
@@ -46,6 +43,7 @@ public class GroupActor extends AbstractActor {
     public Receive createReceive() {
         return receiveBuilder()
                 .match(CreateGroupMessage.class, msg -> {
+                    // if admin is not null then this group already has an admin and this is an error that shouldn't happen
                     if (adminUserName != null)
                         return;
 
@@ -94,7 +92,7 @@ public class GroupActor extends AbstractActor {
                                 msg.targetUserName, groupName)), getSelf());
                         return;
                     }
-
+                    // This message is sent back to the user as confirmation that he can invite another user to this group
                     getSender().tell(msg, getSelf());
                 })
                 .match(ChatActorMessages.JoinGroupAcceptMessage.class, msg -> addUser(msg.invited))
@@ -132,6 +130,7 @@ public class GroupActor extends AbstractActor {
                         return;
                     }
 
+                    // Check if the user is already muted
                     if (mutedUsers.containsKey(msg.targetUserName)) {
                         getSender().tell(new ChatActorMessages.ManagingMessage(String.format("%s is already muted in " +
                                 "%s", msg.targetUserName, groupName)), getSelf());
@@ -168,12 +167,20 @@ public class GroupActor extends AbstractActor {
                             "%s by %s!", groupName, msg.userName)), getSelf());
                 })
                 .match(ManagingActorMessages.UserDisconnectMessage.class, msg -> {
-                    log.info(String.format("deleting user %s", msg.userName));
                     deleteUser(msg.userName, msg.userRef);
+                    router.route(new ChatActorMessages.ManagingMessage(String.format("%s has left %s!", msg.userName,
+                            groupName)), getSelf());
                 })
                 .build();
     }
 
+    /**
+     * Sends either a text message or a FileMessage to the entire group
+     * The function includes validation that the sender is a member of the group, and that it isn't included in the
+     * muted users list
+     * @param userName the name of message sender
+     * @param msg The message object
+     */
     private void sendMsgToGroup(String userName, Object msg) {
         if (!users.contains(userName)) {
             getSender().tell(new ChatActorMessages.ManagingMessage(String.format("You are not part of %s!",
@@ -188,8 +195,14 @@ public class GroupActor extends AbstractActor {
         router.route(msg, getSelf());
     }
 
+    /**
+     * Checks for admin/co-admin privileges, or in other words, if userName is either an admin or in the co-admins list
+     * @param userName The name of the user requesting to perform a certain operation
+     * @return whether the user has privileges or not
+     */
     private boolean checkCoAdminPrivileges(String userName) {
         if (!adminUserName.equals(userName) && !coAdmins.contains(userName)) {
+            // Assumes that the message's sender is the user requesting to perform the operation
             getSender().tell(new ChatActorMessages.ManagingMessage(String.format("You are neither admin nor co-admin " +
                     "of %s!", groupName)), getSelf());
             return true;
@@ -205,9 +218,11 @@ public class GroupActor extends AbstractActor {
     private void deleteUser(String userName, ActorRef actorRef) {
         router = router.removeRoutee(actorRef);
 
+        // If the user to be deleted is the admin of the group, the group should be deleted at once
         if (adminUserName.equals(userName)) {
             router.route(new ChatActorMessages.ManagingMessage(String.format("%s admin has closed %s!", groupName,
                     groupName)), getSelf());
+            // Sends the ManagingActor a notification of this group deletion so it can delete any record of it on its local storage
             getContext().parent().tell(new ManagingActorMessages.GroupDeleteMessage(groupName), getSelf());
             return;
         }

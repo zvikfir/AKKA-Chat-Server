@@ -8,8 +8,6 @@ import akka.actor.AbstractActor;
 import akka.actor.ActorRef;
 import akka.actor.ActorSelection;
 import akka.actor.Props;
-import akka.event.Logging;
-import akka.event.LoggingAdapter;
 import akka.pattern.Patterns;
 import akka.util.Timeout;
 import scala.concurrent.Await;
@@ -26,7 +24,6 @@ public class ChatActor extends AbstractActor {
     private static final String MANAGING_SERVER_ADDRESS = "akka://Whatsapp@127.0.0.1:2552/user/managingServer";
     private final static Timeout timeout = new Timeout(Duration.create(1, TimeUnit.SECONDS));
     private final ActorSelection managingServer = getContext().actorSelection(MANAGING_SERVER_ADDRESS);
-    private final LoggingAdapter log = Logging.getLogger(getContext().getSystem(), this);
     private final Stack<JoinGroupRequestMessage> groupsInvitations = new Stack<>();
     private String userName;
 
