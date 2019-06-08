@@ -39,7 +39,7 @@ public class ChatActor extends AbstractActor {
         return receiveBuilder()
                 .match(UserConnectControlMessage.class, msg -> {
                     if (this.userName != null) {
-                        log.error(String.format("Already connected as %s!", this.userName));
+                        System.out.println(String.format("Already connected as %s!", this.userName));
                         return;
                     }
 
@@ -49,24 +49,24 @@ public class ChatActor extends AbstractActor {
                         ManagingMessage result = (ManagingMessage) Await.result(rt, timeout.duration());
                         if (result.msg.equals(String.format("%s has connected successfully!", msg.userName)))
                             this.userName = msg.userName;
-                        log.info(result.msg);
+                        System.out.println(result.msg);
                     } catch (Exception e) {
-                        log.info("server is offline!");
+                        System.out.println("server is offline!");
                     }
                 })
                 .match(UserDisconnectControlMessage.class, msg -> {
                     if (this.userName == null) {
-                        log.error("You are not connected to the server!");
+                        System.out.println("You are not connected to the server!");
                         return;
                     }
                     Future<Object> rt = Patterns.ask(managingServer,
                             new ManagingActorMessages.UserDisconnectMessage(userName, getSelf()), timeout);
                     try {
                         Object result = Await.result(rt, timeout.duration());
-                        log.info(((ManagingMessage) result).msg);
+                        System.out.println(((ManagingMessage) result).msg);
                         this.userName = null;
                     } catch (Exception e) {
-                        log.info("server is offline!");
+                        System.out.println("server is offline!");
                     }
                 })
                 .match(UserTextControlMessage.class, msg -> {
@@ -112,7 +112,7 @@ public class ChatActor extends AbstractActor {
                                 msg.targetUserName, userName), getSelf()))
                 .match(GroupUserInviteAcceptControlMessage.class, msg -> {
                     if (groupsInvitations.empty()) {
-                        log.info("There are no available groups invitations");
+                        System.out.println("There are no available groups invitations");
                         return;
                     }
 
@@ -128,7 +128,7 @@ public class ChatActor extends AbstractActor {
                 })
                 .match(GroupUserInviteDeclineControlMessage.class, msg -> {
                     if (groupsInvitations.empty()) {
-                        log.info("There are no available groups invitations");
+                        System.out.println("There are no available groups invitations");
                         return;
                     }
                     JoinGroupRequestMessage lastInvite = groupsInvitations.pop();
@@ -166,10 +166,10 @@ public class ChatActor extends AbstractActor {
                     managingServer.tell(new GroupActorMessages.UnmuteUserMessage(userName, msg.targetUserName,
                             targetRef, msg.groupName), getSelf());
                 })
-                .match(TextMessage.class, msg -> log.info(msg.getMessage()))
+                .match(TextMessage.class, msg -> System.out.println(msg.getMessage()))
                 .match(FileMessage.class, msg -> saveFile(msg.file, msg.getMessage()))
-                .match(ManagingMessage.class, msg -> log.info(msg.msg))
-                .match(GroupTextMessage.class, msg -> log.info(msg.getMessage()))
+                .match(ManagingMessage.class, msg -> System.out.println(msg.msg))
+                .match(GroupTextMessage.class, msg -> System.out.println(msg.getMessage()))
                 .match(GroupFileMessage.class, msg -> saveFile(msg.fileContent, msg.getMessage()))
                 .match(GroupActorMessages.ValidateInviteMessage.class, msg -> {
                     ActorRef targetUserNameActorRef = fetchUserRef(msg.targetUserName);
@@ -199,12 +199,12 @@ public class ChatActor extends AbstractActor {
             targetActorRef =
                     ((ManagingActorMessages.FetchTargetUserRefMessage) Await.result(rt, timeout.duration())).targetRef;
         } catch (Exception e) {
-            log.info("server is offline!");
+            System.out.println("server is offline!");
             return null;
         }
 
         if (targetActorRef == ActorRef.noSender())
-            log.info(String.format("%s does not exist!", target));
+            System.out.println(String.format("%s does not exist!", target));
 
         return targetActorRef;
     }
@@ -216,13 +216,13 @@ public class ChatActor extends AbstractActor {
             FileOutputStream out = new FileOutputStream(targetFilePath);
             out.write(file);
             out.close();
-            log.info(String.format(msg, targetFilePath));
+            System.out.println(String.format(msg, targetFilePath));
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
     private void printGroupInvitation(JoinGroupRequestMessage msg) {
-        log.info(String.format("You have been invited to %s, Accept?", msg.groupName));
+        System.out.println(String.format("You have been invited to %s, Accept?", msg.groupName));
     }
 }
