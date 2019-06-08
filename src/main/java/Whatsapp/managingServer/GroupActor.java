@@ -43,7 +43,8 @@ public class GroupActor extends AbstractActor {
     public Receive createReceive() {
         return receiveBuilder()
                 .match(CreateGroupMessage.class, msg -> {
-                    // if admin is not null then this group already has an admin and this is an error that shouldn't happen
+                    // if admin is not null then this group already has an admin and this is an error that shouldn't
+                    // happen
                     if (adminUserName != null)
                         return;
 
@@ -92,7 +93,8 @@ public class GroupActor extends AbstractActor {
                                 msg.targetUserName, groupName)), getSelf());
                         return;
                     }
-                    // This message is sent back to the user as confirmation that he can invite another user to this group
+                    // This message is sent back to the user as confirmation that he can invite another user to this
+                    // group
                     getSender().tell(msg, getSelf());
                 })
                 .match(ChatActorMessages.JoinGroupAcceptMessage.class, msg -> addUser(msg.invited))
@@ -178,8 +180,9 @@ public class GroupActor extends AbstractActor {
      * Sends either a text message or a FileMessage to the entire group
      * The function includes validation that the sender is a member of the group, and that it isn't included in the
      * muted users list
+     *
      * @param userName the name of message sender
-     * @param msg The message object
+     * @param msg      The message object
      */
     private void sendMsgToGroup(String userName, Object msg) {
         if (!users.contains(userName)) {
@@ -197,6 +200,7 @@ public class GroupActor extends AbstractActor {
 
     /**
      * Checks for admin/co-admin privileges, or in other words, if userName is either an admin or in the co-admins list
+     *
      * @param userName The name of the user requesting to perform a certain operation
      * @return whether the user has privileges or not
      */
@@ -222,7 +226,8 @@ public class GroupActor extends AbstractActor {
         if (adminUserName.equals(userName)) {
             router.route(new ChatActorMessages.ManagingMessage(String.format("%s admin has closed %s!", groupName,
                     groupName)), getSelf());
-            // Sends the ManagingActor a notification of this group deletion so it can delete any record of it on its local storage
+            // Sends the ManagingActor a notification of this group deletion so it can delete any record of it on its
+            // local storage
             getContext().parent().tell(new ManagingActorMessages.GroupDeleteMessage(groupName), getSelf());
             return;
         }

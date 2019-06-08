@@ -37,7 +37,7 @@ public class ChatActorMessages {
 
         public String getMessage() {
             LocalDateTime now = LocalDateTime.now();
-            String time = String.format("%d:%d", now.getHour(), now.getMinute());
+            String time = String.format("%02d:%02d", now.getHour(), now.getMinute());
             return String.format("[%s][user][%s]%s", time, source, message);
         }
     }
@@ -57,7 +57,7 @@ public class ChatActorMessages {
 
         public String getMessage() {
             LocalDateTime now = LocalDateTime.now();
-            String time = String.format("%d:%d", now.getHour(), now.getMinute());
+            String time = String.format("%02d:%02d", now.getHour(), now.getMinute());
             return String.format("[%s][user][%s]%s", time, source, message);
         }
     }
@@ -80,7 +80,7 @@ public class ChatActorMessages {
 
         public String getMessage() {
             LocalDateTime now = LocalDateTime.now();
-            String time = String.format("%d:%d", now.getHour(), now.getMinute());
+            String time = String.format("%02d:%02d", now.getHour(), now.getMinute());
             return String.format("[%s][%s][%s]%s", time, groupName, userName, msg);
         }
     }
@@ -106,7 +106,7 @@ public class ChatActorMessages {
 
         public String getMessage() {
             LocalDateTime now = LocalDateTime.now();
-            String time = String.format("%d:%d", now.getHour(), now.getMinute());
+            String time = String.format("%02d:%02d", now.getHour(), now.getMinute());
             return String.format("[%s][%s][%s]%s", time, groupName, userName, message);
         }
     }

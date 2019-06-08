@@ -71,7 +71,8 @@ public class ManagingActor extends AbstractActor {
                     getSender().tell(new ChatActorMessages.ManagingMessage(String.format("%s has been disconnected " +
                             "successfully!", disconnect.userName)), getSelf());
 
-                    // forwards the disconnect message to each group so they know to discard all the information about the disconnected user
+                    // forwards the disconnect message to each group so they know to discard all the information
+                    // about the disconnected user
                     groups.values().forEach(ref -> ref.forward(disconnect, getContext()));
                 })
                 .match(GroupActorMessages.CreateGroupMessage.class, groupCreate -> {
@@ -104,8 +105,9 @@ public class ManagingActor extends AbstractActor {
 
     /**
      * Forwards a message to the relevant group according the groupName
+     *
      * @param groupName the name of the group to forward the message to
-     * @param msg the message to forward to the group
+     * @param msg       the message to forward to the group
      */
     private void groupForward(String groupName, Object msg) {
         if (!groups.containsKey(groupName)) {
