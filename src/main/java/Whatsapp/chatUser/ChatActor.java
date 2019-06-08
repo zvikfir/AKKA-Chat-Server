@@ -37,77 +37,157 @@ public class ChatActor extends AbstractActor {
     @Override
     public Receive createReceive() {
         return receiveBuilder()
-                .match(UserConnectControlMessage.class, msg -> connect(msg.userName))
-                .match(UserDisconnectControlMessage.class, msg -> disconnect())
-                .match(UserTextControlMessage.class, msg -> sendText(msg.target, msg.msg))
-                .match(UserFileControlMessage.class, msg -> sendFile(msg.target, msg.file))
-                .match(GroupCreateControlMessage.class,
-                        msg -> managingServer.tell(new GroupActorMessages.CreateGroupMessage(userName, msg.groupName)
-                                , getSelf()))
-                .match(GroupLeaveControlMessage.class,
-                        msg -> managingServer.tell(new GroupActorMessages.LeaveGroupMessage(userName, msg.groupName),
-                                getSelf()))
+                .match(UserConnectControlMessage.class, msg -> {
+                    if (this.userName != null) {
+                        log.error(String.format("Already connected as %s!", this.userName));
+                        return;
+                    }
+
+                    Future<Object> rt = Patterns.ask(managingServer,
+                            new ManagingActorMessages.UserConnectMessage(msg.userName, getSelf()), timeout);
+                    try {
+                        ManagingMessage result = (ManagingMessage) Await.result(rt, timeout.duration());
+                        if (result.msg.equals(String.format("%s has connected successfully!", msg.userName)))
+                            this.userName = msg.userName;
+                        log.info(result.msg);
+                    } catch (Exception e) {
+                        log.info("server is offline!");
+                    }
+                })
+                .match(UserDisconnectControlMessage.class, msg -> {
+                    if (this.userName == null) {
+                        log.error("You are not connected to the server!");
+                        return;
+                    }
+                    Future<Object> rt = Patterns.ask(managingServer,
+                            new ManagingActorMessages.UserDisconnectMessage(userName, getSelf()), timeout);
+                    try {
+                        Object result = Await.result(rt, timeout.duration());
+                        log.info(((ManagingMessage) result).msg);
+                        this.userName = null;
+                    } catch (Exception e) {
+                        log.info("server is offline!");
+                    }
+                })
+                .match(UserTextControlMessage.class, msg -> {
+                    ActorRef targetRef = fetchUserRef(msg.target);
+                    if (targetRef == null)
+                        return;
+
+                    targetRef.tell(new TextMessage(userName, msg.msg), getSelf());
+                })
+                .match(UserFileControlMessage.class, msg -> {
+                    ActorRef targetRef = fetchUserRef(msg.target);
+                    if (targetRef == null)
+                        return;
+
+                    targetRef.tell(new FileMessage(userName, msg.file), getSelf());
+                })
+                .match(GroupCreateControlMessage.class, msg -> managingServer.tell(
+                        new GroupActorMessages.CreateGroupMessage(userName, msg.groupName), getSelf()))
+                .match(GroupLeaveControlMessage.class, msg -> managingServer.tell(
+                        new GroupActorMessages.LeaveGroupMessage(userName, msg.groupName), getSelf()))
                 .match(GroupSendTextControlMessage.class, msg -> managingServer.tell(new GroupTextMessage(userName,
                         msg.groupName, msg.message), getSelf()))
                 .match(GroupSendFileControlMessage.class, msg -> managingServer.tell(new GroupFileMessage(userName,
                         msg.groupName, msg.fileContent), getSelf()))
-                .match(GroupCoAdminAddControlMessage.class, msg -> addGroupCoAdmin(msg.targetUserName, msg.groupName))
-                .match(GroupCoAdminRemoveControlMessage.class, msg -> removeGroupCoAdmin(msg.targetUserName,
-                        msg.groupName))
+                .match(GroupCoAdminAddControlMessage.class, msg -> {
+                    ActorRef targetUserNameActorRef = fetchUserRef(msg.targetUserName);
+                    if (targetUserNameActorRef == null)
+                        return;
+
+                    managingServer.tell(new GroupActorMessages.AddCoAdminMessage(msg.groupName, userName,
+                            msg.targetUserName, targetUserNameActorRef), getSelf());
+                })
+                .match(GroupCoAdminRemoveControlMessage.class, msg -> {
+                    ActorRef targetUserNameActorRef = fetchUserRef(msg.targetUserName);
+                    if (targetUserNameActorRef == null)
+                        return;
+
+                    managingServer.tell(new GroupActorMessages.RemoveCoAdminMessage(msg.groupName, userName,
+                            msg.targetUserName, targetUserNameActorRef), getSelf());
+                })
                 .match(GroupUserInviteControlMessage.class,
                         msg -> managingServer.tell(new GroupActorMessages.ValidateInviteMessage(msg.groupName,
                                 msg.targetUserName, userName), getSelf()))
-                .match(GroupUserInviteAcceptControlMessage.class, msg -> handleAcceptedGroupInvitations())
-                .match(GroupUserInviteDeclineControlMessage.class, msg -> handleDeclinedGroupInvitations())
-                .match(GroupUserRemoveControlMessage.class, msg -> removeUser(msg.targetUserName, msg.groupName))
-                .match(GroupUserMuteControlMessage.class, msg -> muteUser(msg.targetUserName, msg.groupName,
-                        msg.timeInSeconds))
-                .match(GroupUserUnmuteControlMessage.class, msg -> unmuteUser(msg.targetUserName, msg.groupName))
+                .match(GroupUserInviteAcceptControlMessage.class, msg -> {
+                    if (groupsInvitations.empty()) {
+                        log.info("There are no available groups invitations");
+                        return;
+                    }
+
+                    JoinGroupRequestMessage lastInvite = groupsInvitations.pop();
+                    ActorRef inviter = fetchUserRef(lastInvite.inviter);
+                    if (inviter == null)
+                        return;
+
+                    inviter.tell(new JoinGroupAcceptMessage(lastInvite.groupName, userName), getSelf());
+
+                    if (!groupsInvitations.empty())
+                        printGroupInvitation(groupsInvitations.peek());
+                })
+                .match(GroupUserInviteDeclineControlMessage.class, msg -> {
+                    if (groupsInvitations.empty()) {
+                        log.info("There are no available groups invitations");
+                        return;
+                    }
+                    JoinGroupRequestMessage lastInvite = groupsInvitations.pop();
+                    ActorRef inviter = fetchUserRef(lastInvite.inviter);
+                    if (inviter == null)
+                        return;
+
+                    inviter.tell(new ManagingMessage(String.format("%s declined invitation to group %s", userName,
+                            lastInvite.groupName)), getSelf());
+
+                    if (!groupsInvitations.empty())
+                        printGroupInvitation(groupsInvitations.peek());
+                })
+                .match(GroupUserRemoveControlMessage.class, msg -> {
+                    ActorRef targetActorRef = fetchUserRef(msg.targetUserName);
+                    if (targetActorRef == null)
+                        return;
+
+                    managingServer.tell(new GroupActorMessages.RemoveUserMessage(userName, msg.targetUserName,
+                            targetActorRef, msg.groupName), getSelf());
+                })
+                .match(GroupUserMuteControlMessage.class, msg -> {
+                    ActorRef targetRef = fetchUserRef(msg.targetUserName);
+                    if (targetRef == null)
+                        return;
+
+                    managingServer.tell(new GroupActorMessages.MuteUserMessage(userName, msg.targetUserName,
+                            targetRef, msg.timeInSeconds, msg.groupName), getSelf());
+                })
+                .match(GroupUserUnmuteControlMessage.class, msg -> {
+                    ActorRef targetRef = fetchUserRef(msg.targetUserName);
+                    if (targetRef == null)
+                        return;
+
+                    managingServer.tell(new GroupActorMessages.UnmuteUserMessage(userName, msg.targetUserName,
+                            targetRef, msg.groupName), getSelf());
+                })
                 .match(TextMessage.class, msg -> log.info(msg.getMessage()))
                 .match(FileMessage.class, msg -> saveFile(msg.file, msg.getMessage()))
                 .match(ManagingMessage.class, msg -> log.info(msg.msg))
                 .match(GroupTextMessage.class, msg -> log.info(msg.getMessage()))
                 .match(GroupFileMessage.class, msg -> saveFile(msg.fileContent, msg.getMessage()))
-                .match(GroupActorMessages.ValidateInviteMessage.class, msg -> joinGroupRequest(msg.targetUserName,
-                        msg.groupName))
-                .match(JoinGroupRequestMessage.class, this::addGroupInvitation)
-                .match(JoinGroupAcceptMessage.class, this::groupInviteAccept)
+                .match(GroupActorMessages.ValidateInviteMessage.class, msg -> {
+                    ActorRef targetUserNameActorRef = fetchUserRef(msg.targetUserName);
+                    if (targetUserNameActorRef == null)
+                        return;
+
+                    targetUserNameActorRef.tell(new JoinGroupRequestMessage(msg.groupName, userName), getSelf());
+                })
+                .match(JoinGroupRequestMessage.class, msg2 -> {
+                    if (groupsInvitations.empty())
+                        printGroupInvitation(msg2);
+                    groupsInvitations.push(msg2);
+                })
+                .match(JoinGroupAcceptMessage.class, msg1 -> {
+                    managingServer.forward(msg1, getContext());
+                    getSender().tell(new ManagingMessage(String.format("Welcome to %s!", msg1.groupName)), getSelf());
+                })
                 .build();
-    }
-
-    private void connect(String userName) {
-        if(this.userName != null) {
-            log.error(String.format("Already connected as %s!", this.userName));
-            return;
-        }
-
-        Future<Object> rt = Patterns.ask(managingServer, new ManagingActorMessages.UserConnectMessage(userName,
-                getSelf()), timeout);
-        try {
-            ManagingMessage result = (ManagingMessage) Await.result(rt, timeout.duration());
-            if (result.msg.equals(String.format("%s has connected successfully!", userName))) {
-                this.userName = userName;
-            }
-            log.info(result.msg);
-        } catch (Exception e) {
-            log.info("server is offline!");
-        }
-    }
-
-    private void disconnect() {
-        if(this.userName == null) {
-            log.error("You are not connected to the server!");
-            return;
-        }
-        Future<Object> rt = Patterns.ask(managingServer, new ManagingActorMessages.UserDisconnectMessage(userName,
-                getSelf()), timeout);
-        try {
-            Object result = Await.result(rt, timeout.duration());
-            log.info(((ManagingMessage) result).msg);
-            this.userName = null;
-        } catch (Exception e) {
-            log.info("server is offline!");
-        }
     }
 
     private ActorRef fetchUserRef(String target) {
@@ -129,22 +209,6 @@ public class ChatActor extends AbstractActor {
         return targetActorRef;
     }
 
-    private void sendText(String target, String msg) {
-        ActorRef targetRef = fetchUserRef(target);
-        if (targetRef == null)
-            return;
-
-        targetRef.tell(new TextMessage(userName, msg), getSelf());
-    }
-
-    private void sendFile(String target, byte[] file) {
-        ActorRef targetRef = fetchUserRef(target);
-        if (targetRef == null)
-            return;
-
-        targetRef.tell(new FileMessage(userName, file), getSelf());
-    }
-
     private void saveFile(byte[] file, String msg) {
         try {
             File tmpFile = File.createTempFile("chatUser-sendFile", ".tmp");
@@ -158,106 +222,7 @@ public class ChatActor extends AbstractActor {
         }
     }
 
-    private void addGroupCoAdmin(String targetUserName, String groupName) {
-        ActorRef targetUserNameActorRef = fetchUserRef(targetUserName);
-        if (targetUserNameActorRef == null)
-            return;
-
-        managingServer.tell(new GroupActorMessages.AddCoAdminMessage(groupName, userName, targetUserName,
-                targetUserNameActorRef), getSelf());
-    }
-
-    private void removeGroupCoAdmin(String targetUserName, String groupName) {
-        ActorRef targetUserNameActorRef = fetchUserRef(targetUserName);
-        if (targetUserNameActorRef == null)
-            return;
-
-        managingServer.tell(new GroupActorMessages.RemoveCoAdminMessage(groupName, userName, targetUserName,
-                targetUserNameActorRef), getSelf());
-    }
-
-    private void joinGroupRequest(String targetUserName, String groupName) {
-        ActorRef targetUserNameActorRef = fetchUserRef(targetUserName);
-        if (targetUserNameActorRef == null)
-            return;
-
-        targetUserNameActorRef.tell(new JoinGroupRequestMessage(groupName, userName), getSelf());
-    }
-
-    private void groupInviteAccept(JoinGroupAcceptMessage msg) {
-        managingServer.forward(msg, getContext());
-        getSender().tell(new ManagingMessage(String.format("Welcome to %s!", msg.groupName)), getSelf());
-    }
-
-    private void addGroupInvitation(JoinGroupRequestMessage msg) {
-        if (groupsInvitations.empty()) {
-            printGroupInvitation(msg);
-        }
-        groupsInvitations.push(msg);
-    }
-
     private void printGroupInvitation(JoinGroupRequestMessage msg) {
         log.info(String.format("You have been invited to %s, Accept?", msg.groupName));
-    }
-
-    private void handleAcceptedGroupInvitations() {
-        if (groupsInvitations.empty()) {
-            log.info("There are no available groups invitations");
-            return;
-        }
-
-        JoinGroupRequestMessage lastInvite = groupsInvitations.pop();
-        ActorRef inviter = fetchUserRef(lastInvite.inviter);
-        if (inviter == null)
-            return;
-        inviter.tell(new JoinGroupAcceptMessage(lastInvite.groupName, userName), getSelf());
-
-        if (!groupsInvitations.empty()) {
-            printGroupInvitation(groupsInvitations.peek());
-        }
-    }
-
-    private void handleDeclinedGroupInvitations() {
-        if (groupsInvitations.empty()) {
-            log.info("There are no available groups invitations");
-            return;
-        }
-        JoinGroupRequestMessage lastInvite = groupsInvitations.pop();
-        ActorRef inviter = fetchUserRef(lastInvite.inviter);
-        if (inviter == null)
-            return;
-
-        inviter.tell(new ManagingMessage(String.format("%s declined invitation to group %s", userName,
-                lastInvite.groupName)), getSelf());
-
-        if (!groupsInvitations.empty()) {
-            printGroupInvitation(groupsInvitations.peek());
-        }
-    }
-
-    private void removeUser(String targetUserName, String groupName) {
-        ActorRef targetActorRef = fetchUserRef(targetUserName);
-        if (targetActorRef == null)
-            return;
-
-        managingServer.tell(new GroupActorMessages.RemoveUserMessage(userName, targetUserName, targetActorRef,
-                groupName), getSelf());
-    }
-
-    private void muteUser(String targetUserName, String groupName, long timeInSeconds) {
-        ActorRef targetRef = fetchUserRef(targetUserName);
-        if (targetRef == null)
-            return;
-        managingServer.tell(new GroupActorMessages.MuteUserMessage(userName, targetUserName, targetRef, timeInSeconds
-                , groupName), getSelf());
-    }
-
-    private void unmuteUser(String targetUserName, String groupName) {
-        ActorRef targetRef = fetchUserRef(targetUserName);
-        if (targetRef == null)
-            return;
-
-        managingServer.tell(new GroupActorMessages.UnmuteUserMessage(userName, targetUserName, targetRef, groupName),
-                getSelf());
     }
 }
