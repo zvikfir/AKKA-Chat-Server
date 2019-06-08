@@ -38,6 +38,7 @@ public class ChatActor extends AbstractActor {
     public Receive createReceive() {
         return receiveBuilder()
                 .match(UserConnectControlMessage.class, msg -> {
+                    // Validates the user is not connected.
                     if (this.userName != null) {
                         System.out.println(String.format("Already connected as %s!", this.userName));
                         return;
@@ -47,14 +48,17 @@ public class ChatActor extends AbstractActor {
                             new ManagingActorMessages.UserConnectMessage(msg.userName, getSelf()), timeout);
                     try {
                         ManagingMessage result = (ManagingMessage) Await.result(rt, timeout.duration());
+                        // Sets the username to the requested one if the connection was successful.
                         if (result.msg.equals(String.format("%s has connected successfully!", msg.userName)))
                             this.userName = msg.userName;
+
                         System.out.println(result.msg);
                     } catch (Exception e) {
                         System.out.println("server is offline!");
                     }
                 })
                 .match(UserDisconnectControlMessage.class, msg -> {
+                    // Validates the user is connected.
                     if (this.userName == null) {
                         System.out.println("You are not connected to the server!");
                         return;
@@ -111,36 +115,43 @@ public class ChatActor extends AbstractActor {
                         msg -> managingServer.tell(new GroupActorMessages.ValidateInviteMessage(msg.groupName,
                                 msg.targetUserName, userName), getSelf()))
                 .match(GroupUserInviteAcceptControlMessage.class, msg -> {
+                    // Check if there was an invitation in the queue.
                     if (groupsInvitations.empty()) {
                         System.out.println("There are no available groups invitations");
                         return;
                     }
 
+                    // Gets the inviter reference of the last invite and sends the response.
                     JoinGroupRequestMessage lastInvite = groupsInvitations.pop();
                     ActorRef inviter = fetchUserRef(lastInvite.inviter);
                     if (inviter == null)
                         return;
-
                     inviter.tell(new JoinGroupAcceptMessage(lastInvite.groupName, userName), getSelf());
 
+                    // Prints the next invitation in queue if exists.
                     if (!groupsInvitations.empty())
-                        printGroupInvitation(groupsInvitations.peek());
+                        System.out.println(String.format("You have been invited to %s, Accept?",
+                                groupsInvitations.peek().groupName));
                 })
                 .match(GroupUserInviteDeclineControlMessage.class, msg -> {
+                    // Check if there was an invitation in the queue.
                     if (groupsInvitations.empty()) {
                         System.out.println("There are no available groups invitations");
                         return;
                     }
+
+                    // Gets the inviter reference of the last invite and sends the response.
                     JoinGroupRequestMessage lastInvite = groupsInvitations.pop();
                     ActorRef inviter = fetchUserRef(lastInvite.inviter);
                     if (inviter == null)
                         return;
-
                     inviter.tell(new ManagingMessage(String.format("%s declined invitation to group %s", userName,
                             lastInvite.groupName)), getSelf());
 
+                    // Prints the next invitation in queue if exists.
                     if (!groupsInvitations.empty())
-                        printGroupInvitation(groupsInvitations.peek());
+                        System.out.println(String.format("You have been invited to %s, Accept?",
+                                groupsInvitations.peek().groupName));
                 })
                 .match(GroupUserRemoveControlMessage.class, msg -> {
                     ActorRef targetActorRef = fetchUserRef(msg.targetUserName);
@@ -179,8 +190,10 @@ public class ChatActor extends AbstractActor {
                     targetUserNameActorRef.tell(new JoinGroupRequestMessage(msg.groupName, userName), getSelf());
                 })
                 .match(JoinGroupRequestMessage.class, msg -> {
+                    // Prints the new invitation if it's there are no pending invitations.
                     if (groupsInvitations.empty())
-                        printGroupInvitation(msg);
+                        System.out.println(String.format("You have been invited to %s, Accept?", msg.groupName));
+                    // Appends new group invitation to the queue.
                     groupsInvitations.push(msg);
                 })
                 .match(JoinGroupAcceptMessage.class, msg -> {
@@ -190,6 +203,7 @@ public class ChatActor extends AbstractActor {
                 .build();
     }
 
+    // Fetch a target user actor reference from the server if exists, return null otherwise.
     private ActorRef fetchUserRef(String target) {
         ActorRef targetActorRef;
 
@@ -209,20 +223,17 @@ public class ChatActor extends AbstractActor {
         return targetActorRef;
     }
 
-    private void saveFile(byte[] file, String msg) {
+    // Creates a local file in the users system of the given data.
+    private void saveFile(byte[] file, String data) {
         try {
             File tmpFile = File.createTempFile("chatUser-sendFile", ".tmp");
             String targetFilePath = tmpFile.getAbsolutePath();
             FileOutputStream out = new FileOutputStream(targetFilePath);
             out.write(file);
             out.close();
-            System.out.println(String.format(msg, targetFilePath));
+            System.out.println(String.format(data, targetFilePath));
         } catch (IOException e) {
             e.printStackTrace();
         }
-    }
-
-    private void printGroupInvitation(JoinGroupRequestMessage msg) {
-        System.out.println(String.format("You have been invited to %s, Accept?", msg.groupName));
     }
 }
