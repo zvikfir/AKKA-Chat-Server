@@ -4,7 +4,16 @@ import akka.actor.ActorRef;
 
 import java.io.Serializable;
 
+/**
+ * This class contains messages that, as a rule of thumb, should be handled by the GroupActor
+ */
 public class GroupActorMessages {
+
+    /**
+     * A message received when a user tries to add a co-admin to the group.
+     * The group should authenticate the user by its username and verify that
+     * he has permission to do so, and act accordingly.
+     */
     public static class AddCoAdminMessage implements Serializable {
         public final String groupName;
         public final String userName;
@@ -20,6 +29,11 @@ public class GroupActorMessages {
         }
     }
 
+    /**
+     * A message received when a user tries to remove a co-admin from the group.
+     * The group should authenticate the user by its username and verify that
+     * he has permission to do so, and act accordingly.
+     */
     public static class RemoveCoAdminMessage implements Serializable {
         public final String groupName;
         public final String userName;
@@ -35,6 +49,10 @@ public class GroupActorMessages {
         }
     }
 
+    /**
+     * A message received from a user willing to create a new group.
+     * The message contains the username which will act as the group admin
+     */
     public static class CreateGroupMessage implements Serializable {
         public final String userName;
         public final String groupName;
@@ -45,6 +63,12 @@ public class GroupActorMessages {
         }
     }
 
+    /**
+     * A message received when a user is willing to leave the group.
+     * After handling the message, the requesting user should no longer be
+     * a member of the group, meaning he will no longer be an admin/co-admin or muted,
+     * and he will not be able to send or receive messages from the group
+     */
     public static class LeaveGroupMessage implements Serializable {
         public final String userName;
         public final String groupName;
@@ -55,6 +79,12 @@ public class GroupActorMessages {
         }
     }
 
+    /**
+     * A message received from a user willing to validate that he has permission
+     * to invite a new user to the group and sending him a group invitation request.
+     * It means that he should be an admin or a co-admin, and that the invitee
+     * should not already be in the group
+     */
     public static class ValidateInviteMessage implements Serializable {
         public final String groupName;
         public final String targetUserName;
@@ -67,6 +97,10 @@ public class GroupActorMessages {
         }
     }
 
+    /**
+     * A message received from an admin or a co-admin willing to remove a member
+     * of the group from the group.
+     */
     public static class RemoveUserMessage implements Serializable {
         public final String sourceUserName;
         public final String targetUserName;
@@ -82,6 +116,12 @@ public class GroupActorMessages {
         }
     }
 
+    /**
+     * A message received from an admin/co-admin willing to mute another member
+     * of the group. The message contains the time the other member should be
+     * muted for in seconds, and once the time is up, the member is automatically
+     * un-muted. Once muted, a user can't send messages to the group
+     */
     public static class MuteUserMessage implements Serializable {
         public final String userName;
         public final String targetUserName;
@@ -99,6 +139,11 @@ public class GroupActorMessages {
         }
     }
 
+    /**
+     * A message received by the scheduler of the GroupActor set when an
+     * MuteUserMessage is received. The scheduler sends the message after
+     * the mute-time is over automatically.
+     */
     public static class AutoUnmuteMessage implements Serializable {
         public final String userName;
         public final ActorRef targetRef;
@@ -109,6 +154,10 @@ public class GroupActorMessages {
         }
     }
 
+    /**
+     * A message received from an admin/co-admin willing to un-mute a member
+     * of the group. Once the member is un-muted, he can send messages to the group.
+     */
     public static class UnmuteUserMessage implements Serializable {
         public final String userName;
         public final String targetUserName;

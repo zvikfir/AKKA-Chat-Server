@@ -20,7 +20,7 @@ import java.util.Map;
 
 public class GroupActor extends AbstractActor {
     final LoggingAdapter log = Logging.getLogger(getContext().getSystem(), this);
-    Router router;
+    private Router router;
     private String adminUserName;
     private List<String> coAdmins;
     private List<String> users;

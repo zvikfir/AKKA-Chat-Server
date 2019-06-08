@@ -1,6 +1,13 @@
 package Whatsapp.Messages;
 
+/**
+ * This class contains messages that are sent to the ChatActor as means to
+ * perform commands that were given as input from the client via the UserCLI
+ */
 public class UserCLIControlMessages {
+    /**
+     * /user connect <username>
+     */
     public static class UserConnectControlMessage {
         public final String userName;
 
@@ -9,9 +16,15 @@ public class UserCLIControlMessages {
         }
     }
 
+    /**
+     * /user disconnect
+     */
     public static class UserDisconnectControlMessage {
     }
 
+    /**
+     * /user file <targetusername> <filePath>
+     */
     public static class UserFileControlMessage {
         public final String target;
         public final byte[] file;
@@ -22,6 +35,9 @@ public class UserCLIControlMessages {
         }
     }
 
+    /**
+     * /user text <targetusername> <message>
+     */
     public static class UserTextControlMessage {
         public final String target;
         public final String msg;
@@ -32,6 +48,9 @@ public class UserCLIControlMessages {
         }
     }
 
+    /**
+     * /group coadmin add <groupname> <targetusername>
+     */
     public static class GroupCoAdminAddControlMessage {
         public final String groupName;
         public final String targetUserName;
@@ -42,6 +61,9 @@ public class UserCLIControlMessages {
         }
     }
 
+    /**
+     * /group coadmin remove <groupname> <targetusername>
+     */
     public static class GroupCoAdminRemoveControlMessage {
         public final String groupName;
         public final String targetUserName;
@@ -52,6 +74,9 @@ public class UserCLIControlMessages {
         }
     }
 
+    /**
+     * /group create <groupname>
+     */
     public static class GroupCreateControlMessage {
         public final String groupName;
 
@@ -60,6 +85,9 @@ public class UserCLIControlMessages {
         }
     }
 
+    /**
+     * /group leave <groupname>
+     */
     public static class GroupLeaveControlMessage {
         public final String groupName;
 
@@ -68,6 +96,9 @@ public class UserCLIControlMessages {
         }
     }
 
+    /**
+     * /group send file <groupname> <filePath>
+     */
     public static class GroupSendFileControlMessage {
         public final byte[] fileContent;
         public final String groupName;
@@ -78,6 +109,9 @@ public class UserCLIControlMessages {
         }
     }
 
+    /**
+     * /group send text <groupname> <message>
+     */
     public static class GroupSendTextControlMessage {
         public final String groupName;
         public final String message;
@@ -88,6 +122,9 @@ public class UserCLIControlMessages {
         }
     }
 
+    /**
+     * /group user invite <groupname> <targetusername>
+     */
     public static class GroupUserInviteControlMessage {
         public final String groupName;
         public final String targetUserName;
@@ -98,6 +135,9 @@ public class UserCLIControlMessages {
         }
     }
 
+    /**
+     * /group user remove <groupname> <targetusername>
+     */
     public static class GroupUserRemoveControlMessage {
         public final String groupName;
         public final String targetUserName;
@@ -108,6 +148,9 @@ public class UserCLIControlMessages {
         }
     }
 
+    /**
+     * /group user mute <groupname> <targetusername>
+     */
     public static class GroupUserMuteControlMessage {
         public final String groupName;
         public final String targetUserName;
@@ -120,6 +163,9 @@ public class UserCLIControlMessages {
         }
     }
 
+    /**
+     * /group user unmute <groupname> <targetusername>
+     */
     public static class GroupUserUnmuteControlMessage {
         public final String groupName;
         public final String targetUserName;
@@ -130,9 +176,17 @@ public class UserCLIControlMessages {
         }
     }
 
+    /**
+     * A message sent as an acceptance to join a group after receiving an invitation to one
+     * y|Y|Yes|yes
+     */
     public static class GroupUserInviteAcceptControlMessage {
     }
 
+    /**
+     * A message sent as a decline to join a group after receiving an invitation to one
+     * n|N|No|no
+     */
     public static class GroupUserInviteDeclineControlMessage {
     }
 }

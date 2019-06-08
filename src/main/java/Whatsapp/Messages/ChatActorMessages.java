@@ -3,7 +3,15 @@ package Whatsapp.Messages;
 import java.io.Serializable;
 import java.time.LocalDateTime;
 
+/**
+ * This class contains messages that, as a rule of thumb, should be handled by the GroupActor
+ */
 public class ChatActorMessages {
+
+    /**
+     * A message that is printed in the client, which contains information about actions that has been done,
+     * or about errors that have come up during the process
+     */
     public static class ManagingMessage implements Serializable {
         public final String msg;
 
@@ -12,6 +20,11 @@ public class ChatActorMessages {
         }
     }
 
+    /**
+     * A message containing a binary information. When a ChatActor receives it,
+     * it retrieves the binary information from the message and saves it to a
+     * temporary location on the client's computer
+     */
     public static class FileMessage implements Serializable {
         public final static String message = "File received: %s";
         public final String source;
@@ -29,6 +42,10 @@ public class ChatActorMessages {
         }
     }
 
+    /**
+     * A message containing text from another user. The ChatActor handles it
+     * by printing the text it contains
+     */
     public static class TextMessage implements Serializable {
         public final String source;
         public final String message;
@@ -45,6 +62,10 @@ public class ChatActorMessages {
         }
     }
 
+    /**
+     * A message containing text message sent via a group from a certain user.
+     * The ChatActor prints this message when receiving it.
+     */
     public static class GroupTextMessage implements Serializable {
 
         public final String userName;
@@ -64,6 +85,11 @@ public class ChatActorMessages {
         }
     }
 
+    /**
+     * A message containing a binary information sent via a group from a certain user.
+     * The ChatActor saves the binary information to a temporary file in each member's computer,
+     * and prints the location it is saved to.
+     */
     public static class GroupFileMessage implements Serializable {
         final static String message = "File received: %s";
         public final byte[] fileContent;
@@ -85,6 +111,11 @@ public class ChatActorMessages {
         }
     }
 
+    /**
+     * A message representing an invitation to a group.
+     * This message is stored in a stack in the ChatActor, which enables him to
+     * receive several invitations simultanously, and answer each one after the other.
+     */
     public static class JoinGroupRequestMessage implements Serializable {
         public final String groupName;
         public final String inviter;
@@ -95,6 +126,11 @@ public class ChatActorMessages {
         }
     }
 
+    /**
+     * A message representing a positive answer to a group invitation.
+     * When a ChatActor receives it, it forwards it to the managing server,
+     * and sends the invitee a welcome message
+     */
     public static class JoinGroupAcceptMessage implements Serializable {
         public final String groupName;
         public final String invited;
