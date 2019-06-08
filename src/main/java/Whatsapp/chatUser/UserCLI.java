@@ -1,65 +1,23 @@
 package Whatsapp.chatUser;
 
-
 import Whatsapp.Messages.UserCLIControlMessages.*;
 import akka.actor.ActorRef;
 import akka.actor.ActorSystem;
 import com.sun.deploy.util.StringUtils;
 import com.typesafe.config.ConfigFactory;
-import org.jline.builtins.Completers;
-import org.jline.reader.Completer;
 import org.jline.reader.LineReader;
 import org.jline.reader.LineReaderBuilder;
 import org.jline.reader.ParsedLine;
 import org.jline.reader.impl.DefaultParser;
 import org.jline.terminal.Terminal;
 import org.jline.terminal.TerminalBuilder;
-import org.jline.utils.InfoCmp;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.List;
 
-import static org.jline.builtins.Completers.TreeCompleter.node;
-
 public class UserCLI {
-
-    // TODO: make this work!
-    private static Completer getCompleter() {
-        return new Completers.TreeCompleter(
-                node("/user",
-                        node("connect",
-                                node("username")),
-                        node("disconnect"),
-                        node("file",
-                                node("target", "sourcefilePath")),
-                        node("text",
-                                node("target", "message"))),
-                node("/group",
-                        node("coadmin",
-                                node("add",
-                                        node("groupname", "targetusername")),
-                                node("remove",
-                                        node("groupname", "targetusername"))),
-                        node("create", node("groupname")),
-                        node("leave", node("groupname")),
-                        node("send",
-                                node("file",
-                                        node("groupname", "sourcefilePath")),
-                                node("text",
-                                        node("groupname", "message"))),
-                        node("user",
-                                node("invite",
-                                        node("groupname", "targetusername")),
-                                node("remove",
-                                        node("groupname", "targetusername")),
-                                node("mute",
-                                        node("groupname", "targetgroupname", "timeinseconds")),
-                                node("unmute",
-                                        node("groupname", "targetusername")
-                                ))));
-    }
 
     private static String getText(List<String> words, int index) {
         return StringUtils.join(words.subList(index, words.size()), " ");
@@ -88,7 +46,6 @@ public class UserCLI {
         LineReader reader = LineReaderBuilder.builder()
                 .terminal(terminal)
                 .parser(parser)
-                .completer(getCompleter())
                 .build();
 
         while (true) {
@@ -219,12 +176,7 @@ public class UserCLI {
                 case "n":
                     user.tell(new GroupUserInviteDeclineControlMessage(), ActorRef.noSender());
                     break;
-                case "cls":
-                    terminal.puts(InfoCmp.Capability.clear_screen);
-                    terminal.flush();
-                    break;
             }
         }
-
     }
 }
