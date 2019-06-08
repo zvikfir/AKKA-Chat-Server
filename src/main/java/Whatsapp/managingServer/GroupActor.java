@@ -14,7 +14,9 @@ import akka.routing.Router;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class GroupActor extends AbstractActor {
     final LoggingAdapter log = Logging.getLogger(getContext().getSystem(), this);
@@ -22,7 +24,7 @@ public class GroupActor extends AbstractActor {
     private String adminUserName;
     private List<String> coAdmins;
     private List<String> users;
-    private List<String> mutedUsers;
+    private Map<String, Long> mutedUsers;
     private String groupName;
 
     {
@@ -33,7 +35,7 @@ public class GroupActor extends AbstractActor {
         this.groupName = groupName;
         coAdmins = new ArrayList<>();
         users = new ArrayList<>();
-        mutedUsers = new ArrayList<>();
+        mutedUsers = new HashMap<>();
     }
 
     static public Props props(String groupName) {
@@ -63,30 +65,30 @@ public class GroupActor extends AbstractActor {
                 .match(RemoveUserMessage.class, this::removeUser)
                 .match(MuteUserMessage.class, this::muteUser)
                 .match(AutoUnmuteMessage.class, msg -> {
-                    if (mutedUsers.contains(msg.userName))
-                        unmuteUser(msg.userName, msg.targetRef);
+                    if (!mutedUsers.containsKey(msg.userName))
+                        return;
+                    mutedUsers.remove(msg.userName);
+                    msg.targetRef.tell(new ChatActorMessages.ManagingMessage(String.format("You have been unmuted in " +
+                            "%s! Muting time is up!", groupName)), getSelf());
                 })
                 .match(UnmuteUserMessage.class, msg -> {
                     if (checkCoAdminPrivileges(msg.userName))
                         return;
-                    unmuteUser(msg.targetUserName, msg.targetRef);
+                    if (!mutedUsers.containsKey(msg.targetUserName)) {
+                        getSender().tell(new ChatActorMessages.ManagingMessage(String.format("%s is not muted!",
+                                msg.targetUserName)), getSelf());
+                        return;
+                    }
+
+                    mutedUsers.remove(msg.targetUserName);
+                    msg.targetRef.tell(new ChatActorMessages.ManagingMessage(String.format("You have been unmuted" +
+                            " in %s by %s!", groupName, msg.userName)), getSelf());
                 })
                 .match(ManagingActorMessages.UserDisconnectMessage.class, msg -> {
                     log.info(String.format("deleting user %s", msg.userName));
                     deleteUser(msg.userName, msg.userRef);
                 })
                 .build();
-    }
-
-    private void unmuteUser(String targetUserName, ActorRef targetRef) {
-        if (mutedUsers.contains(targetUserName)) {
-            mutedUsers.remove(targetUserName);
-            targetRef.tell(new ChatActorMessages.ManagingMessage(String.format("You have been unmuted in %s! Muting " +
-                    "time is up!", groupName)), getSelf());
-        } else {
-            targetRef.tell(new ChatActorMessages.ManagingMessage(String.format("%s is not muted!", targetUserName)),
-                    getSelf());
-        }
     }
 
     private void muteUser(MuteUserMessage msg) {
@@ -99,13 +101,13 @@ public class GroupActor extends AbstractActor {
             return;
         }
 
-        if (mutedUsers.contains(msg.targetUserName)) {
+        if (mutedUsers.containsKey(msg.targetUserName)) {
             getSender().tell(new ChatActorMessages.ManagingMessage(String.format("%s is already muted in %s",
                     msg.targetUserName, groupName)), getSelf());
             return;
         }
 
-        mutedUsers.add(msg.targetUserName);
+        mutedUsers.put(msg.targetUserName, msg.timeInSeconds);
 
         getContext().getSystem().
                 scheduler().scheduleOnce(Duration.ofSeconds(msg.timeInSeconds),
@@ -125,9 +127,9 @@ public class GroupActor extends AbstractActor {
                     groupName)), getSelf());
             return;
         }
-        if (mutedUsers.contains(userName)) {
-            getSender().tell(new ChatActorMessages.ManagingMessage(String.format("You are muted in %s", groupName)),
-                    getSelf());
+        if (mutedUsers.containsKey(userName)) {
+            getSender().tell(new ChatActorMessages.ManagingMessage(String.format("You are muted for %d seconds in " +
+                    "%s!", mutedUsers.get(userName), groupName)), getSelf());
             return;
         }
         router.route(msg, getSelf());
@@ -147,7 +149,7 @@ public class GroupActor extends AbstractActor {
             return;
 
         if (users.contains(msg.targetUserName)) {
-            getSender().tell(new ChatActorMessages.ManagingMessage(String.format("%s is already in %s",
+            getSender().tell(new ChatActorMessages.ManagingMessage(String.format("%s is already in %s!",
                     msg.targetUserName, groupName)), getSelf());
             return;
         }
